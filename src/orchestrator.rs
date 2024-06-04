@@ -1,12 +1,15 @@
+use async_trait::async_trait;
+
 use crate::pipeline::{Pipeline, PipelineError, PipelineOutput, PipelineStateBuilt};
 
 pub trait OrchestratorError {
-    fn no_matching_pipeline() -> Self;
+    fn no_pipeline_finished() -> Self;
 }
 
 type OrchestratorPipeline<Input, Output, Error> =
     Pipeline<Input, Output, Error, PipelineStateBuilt>;
 
+#[async_trait]
 pub trait Orchestrator
 where
     Self::Input: Send + Sync + Clone + 'static,
@@ -18,14 +21,14 @@ where
     type Error;
 
     fn get_pipelines(&self) -> &[OrchestratorPipeline<Self::Input, Self::Output, Self::Error>];
-    fn run(&self, input: Self::Input) -> Result<Self::Output, Self::Error> {
+    async fn run(&self, input: Self::Input) -> Result<Self::Output, Self::Error> {
         for pipeline in self.get_pipelines() {
-            match pipeline.run(input.clone())? {
+            match pipeline.run(input.clone()).await? {
                 PipelineOutput::SoftFail => continue,
                 PipelineOutput::Done(output) => return Ok(output),
             }
         }
-        Err(Self::Error::no_matching_pipeline())
+        Err(Self::Error::no_pipeline_finished())
     }
 }
 

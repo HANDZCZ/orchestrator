@@ -75,11 +75,11 @@ impl<Input: Send + Sync + Clone + 'static, Output: Send + Sync + 'static, Error:
         }
     }
 
-    pub fn run(&self, input: Input) -> Result<PipelineOutput<Output>, Error> {
+    pub async fn run(&self, input: Input) -> Result<PipelineOutput<Output>, Error> {
         let mut data: Box<dyn Any + Sync + Send> = Box::new(input);
         let mut index = 0;
         let mut first = self.nodes[0].duplicate();
-        match first.run(data)? {
+        match first.run(data).await? {
             InternalNodeOutput::NodeOutput(NodeOutput::SoftFail) => {
                 return Ok(PipelineOutput::SoftFail)
             }
@@ -114,7 +114,7 @@ impl<Input: Send + Sync + Clone + 'static, Output: Send + Sync + 'static, Error:
                 return Self::get_pipeline_output(data);
             }
             let node = &mut nodes[index];
-            match node.run(data)? {
+            match node.run(data).await? {
                 InternalNodeOutput::NodeOutput(NodeOutput::SoftFail) => {
                     return Ok(PipelineOutput::SoftFail)
                 }

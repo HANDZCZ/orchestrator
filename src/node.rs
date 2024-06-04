@@ -3,6 +3,8 @@ use std::{
     fmt::Debug,
 };
 
+use async_trait::async_trait;
+
 #[derive(Debug)]
 pub enum NodeOutput<T> {
     SoftFail,
@@ -24,6 +26,7 @@ pub struct NextNode {
     pub(crate) next_node_type_name: &'static str,
 }
 
+#[async_trait]
 pub trait Node: Debug + Send + Sync + Clone + 'static
 where
     Self::Input: Send + Sync + 'static,
@@ -33,7 +36,7 @@ where
     type Output;
     type Error;
 
-    fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error>;
+    async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error>;
 }
 
 pub trait Returnable<NodeType: Node> {

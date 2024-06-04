@@ -1,7 +1,10 @@
 use std::fmt::Debug;
 
+use async_trait::async_trait;
 use orchestrator::{
-    node::{Node, NodeOutput, Returnable}, orchestrator::{GeneralOrchestrator, Orchestrator, OrchestratorError}, pipeline::{Pipeline, PipelineError, PipelineOutput}
+    node::{Node, NodeOutput, Returnable},
+    orchestrator::{GeneralOrchestrator, Orchestrator, OrchestratorError},
+    pipeline::{Pipeline, PipelineError, PipelineOutput},
 };
 
 #[derive(Debug, PartialEq)]
@@ -9,7 +12,7 @@ enum MyError {
     WrongPipelineOutput,
     NodeNotFound(&'static str),
     WrongNodeInput(&'static str),
-    NoPipeline
+    NoPipelineFinished,
 }
 
 impl PipelineError for MyError {
@@ -26,20 +29,21 @@ impl PipelineError for MyError {
 }
 
 impl OrchestratorError for MyError {
-    fn no_matching_pipeline() -> Self {
-        MyError::NoPipeline
+    fn no_pipeline_finished() -> Self {
+        MyError::NoPipelineFinished
     }
 }
 
 #[derive(Clone, Debug)]
 struct Matcher;
 
+#[async_trait]
 impl Node for Matcher {
     type Input = String;
     type Output = String;
     type Error = MyError;
 
-    fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+    async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
         if !input.contains("match") {
             return Self::soft_fail().into();
         }
@@ -50,12 +54,13 @@ impl Node for Matcher {
 #[derive(Clone, Debug)]
 struct Downloader;
 
+#[async_trait]
 impl Node for Downloader {
     type Input = String;
     type Output = String;
     type Error = MyError;
 
-    fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+    async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
         Self::advance(input).into()
     }
 }
@@ -65,12 +70,13 @@ struct Parser {
     times: usize,
 }
 
+#[async_trait]
 impl Node for Parser {
     type Input = String;
     type Output = String;
     type Error = MyError;
 
-    fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+    async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
         if self.times == 0 {
             return Self::return_from_pipeline(input).into();
         }
@@ -82,74 +88,77 @@ impl Node for Parser {
 #[derive(Clone, Debug)]
 struct NotDoingIt;
 
+#[async_trait]
 impl Node for NotDoingIt {
     type Input = ();
     type Output = ();
     type Error = MyError;
 
-    fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+    async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
         Self::return_from_pipeline(input).into()
     }
 }
 
-#[test]
-fn pipeline_success() {
+#[tokio::test]
+async fn pipeline_success() {
     let pipeline = Pipeline::<String, String, MyError>::start(Matcher)
         .add_node(Downloader)
         .finish(Parser { times: 3 });
-    let res = pipeline.run("match".into());
+    let res = pipeline.run("match".into()).await;
     assert_eq!(res, Ok(PipelineOutput::Done("match".to_owned())));
 }
 
-#[test]
-fn soft_fail() {
+#[tokio::test]
+async fn soft_fail() {
     let pipeline = Pipeline::<String, String, MyError>::start(Matcher)
         .add_node(Downloader)
         .finish(Parser { times: 3 });
-    let res = pipeline.run("".into());
+    let res = pipeline.run("".into()).await;
     assert_eq!(res, Ok(PipelineOutput::SoftFail));
 }
 
-#[test]
-fn node_not_found() {
+#[tokio::test]
+async fn node_not_found() {
     let pipeline = Pipeline::<String, String, MyError>::start(Matcher).finish(Parser { times: 3 });
-    let res = pipeline.run("match".into());
+    let res = pipeline.run("match".into()).await;
     assert_eq!(res, Err(MyError::NodeNotFound("functionality::Downloader")));
 }
 
-#[test]
-fn wrong_input() {
+#[tokio::test]
+async fn wrong_input() {
     let pipeline = Pipeline::<String, (), MyError>::start(Matcher).finish(NotDoingIt);
-    let res = pipeline.run("match".into());
-    assert_eq!(res, Err(MyError::WrongNodeInput("functionality::NotDoingIt")))
+    let res = pipeline.run("match".into()).await;
+    assert_eq!(
+        res,
+        Err(MyError::WrongNodeInput("functionality::NotDoingIt"))
+    )
 }
 
-#[test]
-fn wrong_output() {
+#[tokio::test]
+async fn wrong_output() {
     let pipeline = Pipeline::<(), String, MyError>::start(NotDoingIt).finish(Matcher);
-    let res = pipeline.run(());
+    let res = pipeline.run(()).await;
     assert_eq!(res, Err(MyError::WrongPipelineOutput))
 }
 
-
-#[test]
-fn orchestrator_success() {
+#[tokio::test]
+async fn orchestrator_success() {
     let pipeline = Pipeline::<String, String, MyError>::start(Matcher)
         .add_node(Downloader)
         .finish(Parser { times: 3 });
     let mut orchestrator = GeneralOrchestrator::new();
     orchestrator.add_pipeline(pipeline);
-    let res = orchestrator.run("match".into());
+    let res = orchestrator.run("match".into()).await;
     assert_eq!(res, Ok("match".to_owned()));
 }
 
-#[test]
-fn orchestrator_no_pipeline() {
+#[tokio::test]
+async fn orchestrator_no_pipeline() {
     let pipeline = Pipeline::<String, String, MyError>::start(Matcher)
         .add_node(Downloader)
         .finish(Parser { times: 3 });
     let mut orchestrator = GeneralOrchestrator::new();
     orchestrator.add_pipeline(pipeline);
-    let res = orchestrator.run("".into());
-    assert_eq!(res, Err(MyError::NoPipeline));
+    let res = orchestrator.run("".into()).await;
+    assert_eq!(res, Err(MyError::NoPipelineFinished));
 }
