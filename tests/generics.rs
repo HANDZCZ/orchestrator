@@ -33,7 +33,7 @@ impl From<MyPipelineError> for MyOrchestratorError {
 
 #[derive(Debug, PartialEq)]
 enum MyPipelineError {
-    WrongPipelineOutput,
+    WrongPipelineOutput(&'static str),
     NodeNotFound(&'static str),
     SomeNodeError,
 }
@@ -41,7 +41,9 @@ enum MyPipelineError {
 impl From<PipelineError> for MyPipelineError {
     fn from(value: PipelineError) -> Self {
         match value {
-            PipelineError::WrongOutputTypeForPipeline => Self::WrongPipelineOutput,
+            PipelineError::WrongOutputTypeForPipeline { node_type_name } => {
+                Self::WrongPipelineOutput(node_type_name)
+            }
             PipelineError::NodeWithTypeNotFound { node_type_name } => {
                 Self::NodeNotFound(node_type_name)
             }
@@ -201,7 +203,7 @@ async fn wrong_output() {
         .add_node(NotDoingIt2)
         .finish();
     let res = pipeline.run(()).await;
-    assert_eq!(res, Err(MyPipelineError::WrongPipelineOutput))
+    assert_eq!(res, Err(MyPipelineError::WrongPipelineOutput("generics::NotDoingIt")))
 }
 
 #[tokio::test]

@@ -49,8 +49,11 @@ pub struct GenericPipeline<
 /// Defines which errors can occur in [`GenericPipeline`].
 #[derive(Debug)]
 pub enum PipelineError {
-    /// Output thats supposed to be returned from pipeline has wrong type.
-    WrongOutputTypeForPipeline,
+    /// Output that is supposed to be returned from pipeline has wrong type.
+    WrongOutputTypeForPipeline {
+        /// Name of the node which returned the wrong type.
+        node_type_name: &'static str,
+    },
     /// [`Node`] with specified type could not be found in pipeline.
     /// Most likely you just forgot to add it to the pipeline.
     NodeWithTypeNotFound {
@@ -92,10 +95,13 @@ impl<
 
     fn get_pipeline_output(
         data: Box<dyn Any + Send + Sync>,
+        node: &dyn InternalNode<Error>,
     ) -> Result<PipelineOutput<Output>, Error> {
         match data.downcast::<Output>() {
             Ok(output) => Ok(PipelineOutput::Done(*output)),
-            Err(_) => Err(Error::from(PipelineError::WrongOutputTypeForPipeline)),
+            Err(_) => Err(Error::from(PipelineError::WrongOutputTypeForPipeline {
+                node_type_name: node.get_node_type_name(),
+            })),
         }
     }
 }
@@ -125,13 +131,14 @@ impl<
     async fn run(&self, input: Self::Input) -> Result<Self::Output, Self::Error> {
         let mut data: Box<dyn Any + Sync + Send> = Box::new(input);
         let mut index = 0;
+        let mut prev_index = 0;
         let mut first = self.nodes[0].duplicate();
         match first.run(data).await? {
             InternalNodeOutput::NodeOutput(NodeOutput::SoftFail) => {
                 return Ok(PipelineOutput::SoftFail)
             }
             InternalNodeOutput::NodeOutput(NodeOutput::ReturnFromPipeline(data)) => {
-                return Self::get_pipeline_output(data);
+                return Self::get_pipeline_output(data, &*first);
             }
             InternalNodeOutput::NodeOutput(NodeOutput::PipeToNode(NextNode {
                 output,
@@ -162,7 +169,8 @@ impl<
 
         loop {
             if index >= nodes.len() {
-                return Self::get_pipeline_output(data);
+                let prev_node = &nodes[prev_index];
+                return Self::get_pipeline_output(data, &**prev_node);
             }
             let node = &mut nodes[index];
             match node.run(data).await? {
@@ -170,7 +178,7 @@ impl<
                     return Ok(PipelineOutput::SoftFail)
                 }
                 InternalNodeOutput::NodeOutput(NodeOutput::ReturnFromPipeline(data)) => {
-                    return Self::get_pipeline_output(data);
+                    return Self::get_pipeline_output(data, &**node);
                 }
                 InternalNodeOutput::NodeOutput(NodeOutput::PipeToNode(NextNode {
                     output,
@@ -178,6 +186,7 @@ impl<
                     next_node_type_name,
                 })) => {
                     data = output;
+                    prev_index = index;
                     index = self.get_node_index(next_node_type).ok_or(Error::from(
                         PipelineError::NodeWithTypeNotFound {
                             node_type_name: next_node_type_name,
@@ -186,6 +195,7 @@ impl<
                 }
                 InternalNodeOutput::NodeOutput(NodeOutput::Advance(output)) => {
                     data = output;
+                    prev_index = index;
                     index += 1;
                 }
                 InternalNodeOutput::WrongInputType => {
