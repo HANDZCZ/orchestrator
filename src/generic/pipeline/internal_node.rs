@@ -5,7 +5,7 @@ use std::{
 
 use async_trait::async_trait;
 
-use crate::node::{Node, NodeOutput};
+use crate::generic::node::{Node, NodeOutput};
 
 #[derive(Debug)]
 pub enum InternalNodeOutput {
@@ -15,7 +15,8 @@ pub enum InternalNodeOutput {
 
 #[async_trait]
 pub trait InternalNode<Error>: Debug + Send + Sync {
-    async fn run(&mut self, input: Box<dyn Any + Send + Sync>) -> Result<InternalNodeOutput, Error>;
+    async fn run(&mut self, input: Box<dyn Any + Send + Sync>)
+        -> Result<InternalNodeOutput, Error>;
     fn duplicate(&self) -> Box<dyn InternalNode<Error>>;
     fn get_node_type(&self) -> TypeId;
     fn get_node_type_name(&self) -> &'static str;
@@ -33,16 +34,19 @@ impl<NodeType: Node> InternalNodeStruct<NodeType> {
 }
 
 #[async_trait]
-impl<Error, NodeType: Node<Error = Error>> InternalNode<Error> for InternalNodeStruct<NodeType> {
-    async fn run(&mut self, input: Box<dyn Any + Send + Sync>) -> Result<InternalNodeOutput, Error> {
+impl<NodeType: Node<Error = NodeError> + Debug, Error, NodeError: Into<Error>> InternalNode<Error>
+    for InternalNodeStruct<NodeType>
+{
+    async fn run(
+        &mut self,
+        input: Box<dyn Any + Send + Sync>,
+    ) -> Result<InternalNodeOutput, Error> {
         let Ok(input) = input.downcast::<NodeType::Input>() else {
             return Ok(InternalNodeOutput::WrongInputType);
         };
-        let output = self.node.run(*input).await?;
+        let output = self.node.run(*input).await.map_err(|e| e.into())?;
         Ok(InternalNodeOutput::NodeOutput(match output {
-            NodeOutput::SuccessAndPipeOutput(next_node) => {
-                NodeOutput::SuccessAndPipeOutput(next_node)
-            }
+            NodeOutput::PipeToNode(next_node) => NodeOutput::PipeToNode(next_node),
             NodeOutput::SoftFail => NodeOutput::SoftFail,
             NodeOutput::ReturnFromPipeline(output) => {
                 NodeOutput::ReturnFromPipeline(Box::new(output))
