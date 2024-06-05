@@ -35,16 +35,12 @@ impl From<MyPipelineError> for MyOrchestratorError {
 enum MyPipelineError {
     WrongPipelineOutput,
     NodeNotFound(&'static str),
-    WrongNodeInput(&'static str),
     SomeNodeError,
 }
 
 impl From<PipelineError> for MyPipelineError {
     fn from(value: PipelineError) -> Self {
         match value {
-            PipelineError::WrongInputTypeForNode { node_type_name } => {
-                Self::WrongNodeInput(node_type_name)
-            }
             PipelineError::WrongOutputTypeForPipeline => Self::WrongPipelineOutput,
             PipelineError::NodeWithTypeNotFound { node_type_name } => {
                 Self::NodeNotFound(node_type_name)
@@ -134,44 +130,63 @@ impl Node for Parser {
     }
 }
 
-#[derive(Clone, Debug)]
-struct NotDoingIt;
 #[derive(Debug)]
 struct NotDoingItError;
+#[derive(Clone, Debug)]
+struct NotDoingIt;
 
 #[async_trait]
 impl Node for NotDoingIt {
     type Input = ();
+    type Output = String;
+    type Error = NotDoingItError;
+
+    async fn run(&mut self, _input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+        Self::return_from_pipeline("".to_string()).into()
+    }
+}
+#[derive(Clone, Debug)]
+struct NotDoingIt2;
+
+#[async_trait]
+impl Node for NotDoingIt2 {
+    type Input = String;
     type Output = ();
     type Error = NotDoingItError;
 
-    async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
-        Self::return_from_pipeline(input).into()
+    async fn run(&mut self, _input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+        Self::return_from_pipeline(()).into()
     }
 }
 
 #[tokio::test]
 async fn pipeline_success() {
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::start(Matcher)
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+        .add_node(Matcher)
         .add_node(Downloader)
-        .finish(Parser { times: 3 });
+        .add_node(Parser { times: 3 })
+        .finish();
     let res = pipeline.run("match".into()).await;
     assert_eq!(res, Ok(PipelineOutput::Done("match".to_owned())));
 }
 
 #[tokio::test]
 async fn soft_fail() {
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::start(Matcher)
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+        .add_node(Matcher)
         .add_node(Downloader)
-        .finish(Parser { times: 3 });
+        .add_node(Parser { times: 3 })
+        .finish();
     let res = pipeline.run("".into()).await;
     assert_eq!(res, Ok(PipelineOutput::SoftFail));
 }
 
 #[tokio::test]
 async fn node_not_found() {
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::start(Matcher)
-        .finish(Parser { times: 3 });
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+        .add_node(Matcher)
+        .add_node(Parser { times: 3 })
+        .finish();
     let res = pipeline.run("match".into()).await;
     assert_eq!(
         res,
@@ -180,29 +195,22 @@ async fn node_not_found() {
 }
 
 #[tokio::test]
-async fn wrong_input() {
-    let pipeline =
-        GenericPipeline::<String, (), MyPipelineError>::start(Matcher).finish(NotDoingIt);
-    let res = pipeline.run("match".into()).await;
-    assert_eq!(
-        res,
-        Err(MyPipelineError::WrongNodeInput("generics::NotDoingIt"))
-    )
-}
-
-#[tokio::test]
 async fn wrong_output() {
-    let pipeline =
-        GenericPipeline::<(), String, MyPipelineError>::start(NotDoingIt).finish(Matcher);
+    let pipeline = GenericPipeline::<(), (), MyPipelineError>::new()
+        .add_node(NotDoingIt)
+        .add_node(NotDoingIt2)
+        .finish();
     let res = pipeline.run(()).await;
     assert_eq!(res, Err(MyPipelineError::WrongPipelineOutput))
 }
 
 #[tokio::test]
 async fn orchestrator_success() {
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::start(Matcher)
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+        .add_node(Matcher)
         .add_node(Downloader)
-        .finish(Parser { times: 3 });
+        .add_node(Parser { times: 3 })
+        .finish();
     let mut orchestrator: GenericOrchestrator<String, String, MyOrchestratorError> =
         GenericOrchestrator::new();
     orchestrator.add_pipeline(pipeline);
@@ -212,9 +220,11 @@ async fn orchestrator_success() {
 
 #[tokio::test]
 async fn orchestrator_no_pipeline() {
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::start(Matcher)
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+        .add_node(Matcher)
         .add_node(Downloader)
-        .finish(Parser { times: 3 });
+        .add_node(Parser { times: 3 })
+        .finish();
     let mut orchestrator: GenericOrchestrator<String, String, MyOrchestratorError> =
         GenericOrchestrator::new();
     orchestrator.add_pipeline(pipeline);

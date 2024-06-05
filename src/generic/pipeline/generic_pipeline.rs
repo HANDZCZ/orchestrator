@@ -21,9 +21,13 @@ pub struct PipelineStateNew;
 #[derive(Debug)]
 pub struct PipelineStateAddingNodes;
 /// Marker type that is used to say that [`GenericPipeline`] has been built.
-/// In this state pipeline has at least two nodes inside.
+/// In this state pipeline has at least one node inside.
 #[derive(Debug)]
 pub struct PipelineStateBuilt;
+
+/// Marker type that is used to say that [`GenericPipeline`] can accept any type as the next [`Node`] input.
+#[derive(Debug)]
+pub struct AnyNodeInput;
 
 /// Generic implementation of [`Pipeline`] trait.
 /// That takes some input type and returns some output type or some error type.
@@ -32,10 +36,12 @@ pub struct GenericPipeline<
     Input: Debug + Send + Sync + Clone + 'static,
     Output: Debug + Send + Sync + 'static,
     Error: From<PipelineError> + Send + Sync + 'static,
+    NextNodeInput = AnyNodeInput,
     State = PipelineStateNew,
 > {
     _input: PhantomData<Input>,
     _output: PhantomData<Output>,
+    _next_node_input: PhantomData<NextNodeInput>,
     _pipeline_state: PhantomData<State>,
     nodes: Vec<Box<dyn InternalNode<Error>>>,
 }
@@ -43,11 +49,6 @@ pub struct GenericPipeline<
 /// Defines which errors can occur in [`GenericPipeline`].
 #[derive(Debug)]
 pub enum PipelineError {
-    /// Input to [`Node`] has wrong type.
-    WrongInputTypeForNode {
-        /// Name of the node which got the wrong input type.
-        node_type_name: &'static str,
-    },
     /// Output thats supposed to be returned from pipeline has wrong type.
     WrongOutputTypeForPipeline,
     /// [`Node`] with specified type could not be found in pipeline.
@@ -62,17 +63,16 @@ impl<
         Input: Debug + Send + Sync + Clone + 'static,
         Output: Debug + Send + Sync + 'static,
         Error: From<PipelineError> + Send + Sync + 'static,
-    > GenericPipeline<Input, Output, Error, PipelineStateNew>
+    > GenericPipeline<Input, Output, Error, AnyNodeInput, PipelineStateNew>
 {
-    /// Adds the first node to the [`GenericPipeline`].
-    pub fn start<NodeError: Into<Error>>(
-        node: impl Node<Input = Input, Error = NodeError> + Debug,
-    ) -> GenericPipeline<Input, Output, Error, PipelineStateAddingNodes> {
-        GenericPipeline {
+    /// Creates new instance of [`GenericPipeline`].
+    pub fn new() -> Self {
+        Self {
             _input: PhantomData,
             _output: PhantomData,
+            _next_node_input: PhantomData,
             _pipeline_state: PhantomData,
-            nodes: vec![Box::new(InternalNodeStruct::new(node))],
+            nodes: Vec::new(),
         }
     }
 }
@@ -81,7 +81,7 @@ impl<
         Input: Debug + Send + Sync + Clone + 'static,
         Output: Debug + Send + Sync + 'static,
         Error: From<PipelineError> + Send + Sync + 'static,
-    > GenericPipeline<Input, Output, Error, PipelineStateBuilt>
+    > GenericPipeline<Input, Output, Error, Output, PipelineStateBuilt>
 {
     fn get_node_index(&self, ty: TypeId) -> Option<usize> {
         self.nodes
@@ -116,7 +116,7 @@ impl<
         Input: Debug + Send + Sync + Clone + 'static,
         Output: Debug + Send + Sync + 'static,
         Error: From<PipelineError> + Send + Sync + 'static,
-    > Pipeline for GenericPipeline<Input, Output, Error, PipelineStateBuilt>
+    > Pipeline for GenericPipeline<Input, Output, Error, Output, PipelineStateBuilt>
 {
     type Input = Input;
     type Output = PipelineOutput<Output>;
@@ -150,9 +150,9 @@ impl<
                 index += 1;
             }
             InternalNodeOutput::WrongInputType => {
-                return Err(Error::from(PipelineError::WrongInputTypeForNode {
-                    node_type_name: first.get_node_type_name(),
-                }));
+                unreachable!(
+                    "Type safety for the win!\n\tIf you reach this something web seriously wrong."
+                );
             }
         };
 
@@ -189,9 +189,7 @@ impl<
                     index += 1;
                 }
                 InternalNodeOutput::WrongInputType => {
-                    return Err(Error::from(PipelineError::WrongInputTypeForNode {
-                        node_type_name: node.get_node_type_name(),
-                    }));
+                    unreachable!("Type safety for the win!\n\tIf you reach this something web seriously wrong.");
                 }
             }
         }
@@ -202,27 +200,61 @@ impl<
         Input: Debug + Send + Sync + Clone + 'static,
         Output: Debug + Send + Sync + 'static,
         Error: From<PipelineError> + Send + Sync + 'static,
-    > GenericPipeline<Input, Output, Error, PipelineStateAddingNodes>
+    > GenericPipeline<Input, Output, Error, AnyNodeInput, PipelineStateNew>
 {
-    /// Adds the 2 to N-1 node to the [`GenericPipeline`].
-    pub fn add_node<NodeError: Into<Error>>(
+    /// Adds node to the [`GenericPipeline`].
+    pub fn add_node<NodeError: Into<Error>, NodeOutput>(
         mut self,
-        node: impl Node<Error = NodeError> + Debug,
-    ) -> Self {
+        node: impl Node<Error = NodeError, Input = Input, Output = NodeOutput> + Debug,
+    ) -> GenericPipeline<Input, Output, Error, NodeOutput, PipelineStateAddingNodes> {
         self.nodes.push(Box::new(InternalNodeStruct::new(node)));
-        self
-    }
-
-    /// Adds the last node to the [`GenericPipeline`].
-    pub fn finish<NodeError: Into<Error>>(
-        self,
-        node: impl Node<Output = Output, Error = NodeError> + Debug,
-    ) -> GenericPipeline<Input, Output, Error, PipelineStateBuilt> {
         GenericPipeline {
             _input: PhantomData,
             _output: PhantomData,
+            _next_node_input: PhantomData,
             _pipeline_state: PhantomData,
-            nodes: self.add_node(node).nodes,
+            nodes: self.nodes,
+        }
+    }
+}
+
+impl<
+        Input: Debug + Send + Sync + Clone + 'static,
+        Output: Debug + Send + Sync + 'static,
+        Error: From<PipelineError> + Send + Sync + 'static,
+        NodeInput,
+    > GenericPipeline<Input, Output, Error, NodeInput, PipelineStateAddingNodes>
+{
+    /// Adds node to the [`GenericPipeline`].
+    pub fn add_node<NodeError: Into<Error>, NodeOutput>(
+        mut self,
+        node: impl Node<Error = NodeError, Input = NodeInput, Output = NodeOutput> + Debug,
+    ) -> GenericPipeline<Input, Output, Error, NodeOutput, PipelineStateAddingNodes> {
+        self.nodes.push(Box::new(InternalNodeStruct::new(node)));
+        GenericPipeline {
+            _input: PhantomData,
+            _output: PhantomData,
+            _next_node_input: PhantomData,
+            _pipeline_state: PhantomData,
+            nodes: self.nodes,
+        }
+    }
+}
+
+impl<
+        Input: Debug + Send + Sync + Clone + 'static,
+        Output: Debug + Send + Sync + 'static,
+        Error: From<PipelineError> + Send + Sync + 'static,
+    > GenericPipeline<Input, Output, Error, Output, PipelineStateAddingNodes>
+{
+    /// Finalizes the pipeline so any more nodes can't be added to it.
+    pub fn finish(self) -> GenericPipeline<Input, Output, Error, Output, PipelineStateBuilt> {
+        GenericPipeline {
+            _input: PhantomData,
+            _output: PhantomData,
+            _next_node_input: PhantomData,
+            _pipeline_state: PhantomData,
+            nodes: self.nodes,
         }
     }
 }
