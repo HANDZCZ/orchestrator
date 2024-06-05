@@ -13,13 +13,20 @@ use crate::{
 
 use super::internal_node::{InternalNode, InternalNodeOutput, InternalNodeStruct};
 
+/// Marker type that is used to say that [`GenericPipeline`] was just created and does not have any nodes in it.
 #[derive(Debug)]
 pub struct PipelineStateNew;
+/// Marker type that is used to say that [`GenericPipeline`] is in the process of adding nodes.
+/// In this state pipeline has at least one node inside.
 #[derive(Debug)]
 pub struct PipelineStateAddingNodes;
+/// Marker type that is used to say that [`GenericPipeline`] has been built.
+/// In this state pipeline has at least two nodes inside.
 #[derive(Debug)]
 pub struct PipelineStateBuilt;
 
+/// Generic implementation of [`Pipeline`] trait.
+/// That takes some input type and returns some output type or some error type.
 #[derive(Debug)]
 pub struct GenericPipeline<
     Input: Debug + Send + Sync + Clone + 'static,
@@ -33,11 +40,22 @@ pub struct GenericPipeline<
     nodes: Vec<Box<dyn InternalNode<Error>>>,
 }
 
+/// Defines which errors can occur in [`GenericPipeline`].
 #[derive(Debug)]
 pub enum PipelineError {
-    WrongInputTypeForNode { node_type_name: &'static str },
+    /// Input to [`Node`] has wrong type.
+    WrongInputTypeForNode {
+        /// Name of the node which got the wrong input type.
+        node_type_name: &'static str,
+    },
+    /// Output thats supposed to be returned from pipeline has wrong type.
     WrongOutputTypeForPipeline,
-    NodeWithTypeNotFound { node_type_name: &'static str },
+    /// [`Node`] with specified type could not be found in pipeline.
+    /// Most likely you just forgot to add it to the pipeline.
+    NodeWithTypeNotFound {
+        /// Name of the node which could not be found.
+        node_type_name: &'static str,
+    },
 }
 
 impl<
@@ -46,6 +64,7 @@ impl<
         Error: From<PipelineError> + Send + Sync + 'static,
     > GenericPipeline<Input, Output, Error, PipelineStateNew>
 {
+    /// Adds the first node to the [`GenericPipeline`].
     pub fn start<NodeError: Into<Error>>(
         node: impl Node<Input = Input, Error = NodeError> + Debug,
     ) -> GenericPipeline<Input, Output, Error, PipelineStateAddingNodes> {
@@ -81,9 +100,14 @@ impl<
     }
 }
 
+/// Defines what [`GenericPipeline`] returns.
 #[derive(Debug, PartialEq)]
 pub enum PipelineOutput<T> {
+    /// Says that the pipeline soft failed.
+    ///
+    /// For more information look at [`NodeOutput::SoftFail`].
     SoftFail,
+    /// Pipeline finished successfully.
     Done(T),
 }
 
@@ -180,6 +204,7 @@ impl<
         Error: From<PipelineError> + Send + Sync + 'static,
     > GenericPipeline<Input, Output, Error, PipelineStateAddingNodes>
 {
+    /// Adds the 2 to N-1 node to the [`GenericPipeline`].
     pub fn add_node<NodeError: Into<Error>>(
         mut self,
         node: impl Node<Error = NodeError> + Debug,
@@ -188,6 +213,7 @@ impl<
         self
     }
 
+    /// Adds the last node to the [`GenericPipeline`].
     pub fn finish<NodeError: Into<Error>>(
         self,
         node: impl Node<Output = Output, Error = NodeError> + Debug,

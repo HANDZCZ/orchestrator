@@ -6,11 +6,18 @@ use crate::{generic::pipeline::PipelineOutput, orchestrator::Orchestrator, pipel
 
 use super::internal_pipeline::{InternalPipeline, InternalPipelineStruct};
 
+/// Defines which errors can occur in [`GenericOrchestrator`].
 #[derive(Debug)]
 pub enum OrchestratorError {
+    /// All the pipelines added to orchestrator soft failed.
+    ///
+    /// For more information about soft fail look at [`NodeOutput::SoftFail`](crate::generic::node::NodeOutput::SoftFail).
     AllPipelinesSoftFailed,
 }
 
+/// Generic implementation of [`Orchestrator`] trait.
+/// That takes some input type and returns some output type or some error type.
+#[derive(Debug)]
 pub struct GenericOrchestrator<
     Input: Send + Sync + Clone + 'static,
     Output: Send + Sync + 'static,
@@ -47,11 +54,15 @@ impl<
         Error: From<OrchestratorError> + Send + Sync + 'static,
     > GenericOrchestrator<Input, Output, Error>
 {
+    /// Creates a new instance of [`GenericOrchestrator`].
     pub fn new() -> Self {
         Self {
             pipelines: Vec::new(),
         }
     }
+
+    /// Adds a pipeline to the [`GenericOrchestrator`] which needs to have same the input and output as the [`GenericOrchestrator`].
+    /// It also needs to have an error type that implements `Into<OrchestratorErrorType>`.
     pub fn add_pipeline<PipelineError: Into<Error>>(
         &mut self,
         pipeline: impl Pipeline<Input = Input, Output = PipelineOutput<Output>, Error = PipelineError>
