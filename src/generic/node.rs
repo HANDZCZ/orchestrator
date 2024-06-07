@@ -64,11 +64,12 @@ pub trait Returnable<NodeType: Node> {
     /// Can be used for:
     /// - saying which [`Node`] should be run next
     /// - jumping to a [`Node`] in a [`Pipeline`](crate::pipeline::Pipeline)
-    fn pipe_to<NextNodeType: Node<Input = NodeType::Output>>(
-        output: NodeType::Output,
-    ) -> NodeOutput<NodeType::Output> {
+    fn pipe_to<NextNodeType>(data: NextNodeType::Input) -> NodeOutput<NextNodeType::Input>
+    where
+        NextNodeType: Node<Input = NodeType::Output>,
+    {
         NodeOutput::PipeToNode(NextNode {
-            output: Box::new(output),
+            output: Box::new(data),
             next_node_type: TypeId::of::<NextNodeType>(),
             next_node_type_name: any::type_name::<NextNodeType>(),
         })

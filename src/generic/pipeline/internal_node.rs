@@ -34,8 +34,10 @@ impl<NodeType: Node> InternalNodeStruct<NodeType> {
 }
 
 #[async_trait]
-impl<NodeType: Node<Error = NodeError> + Debug, Error, NodeError: Into<Error>> InternalNode<Error>
-    for InternalNodeStruct<NodeType>
+impl<NodeType, Error, NodeError> InternalNode<Error> for InternalNodeStruct<NodeType>
+where
+    NodeType: Node<Error = NodeError> + Debug,
+    NodeError: Into<Error>,
 {
     async fn run(
         &mut self,

@@ -18,20 +18,21 @@ pub enum OrchestratorError {
 /// Generic implementation of [`Orchestrator`] trait.
 /// That takes some input type and returns some output type or some error type.
 #[derive(Debug)]
-pub struct GenericOrchestrator<
+pub struct GenericOrchestrator<Input, Output, Error>
+where
     Input: Send + Sync + Clone + 'static,
     Output: Send + Sync + 'static,
     Error: From<OrchestratorError> + Send + Sync + 'static,
-> {
+{
     pipelines: Vec<Box<dyn InternalPipeline<Input, PipelineOutput<Output>, Error>>>,
 }
 
 #[async_trait]
-impl<
-        Input: Debug + Send + Sync + Clone + 'static,
-        Output: Debug + Send + Sync + 'static,
-        Error: From<OrchestratorError> + Send + Sync + 'static,
-    > Orchestrator for GenericOrchestrator<Input, Output, Error>
+impl<Input, Output, Error> Orchestrator for GenericOrchestrator<Input, Output, Error>
+where
+    Input: Debug + Send + Sync + Clone + 'static,
+    Output: Debug + Send + Sync + 'static,
+    Error: From<OrchestratorError> + Send + Sync + 'static,
 {
     type Input = Input;
     type Output = Output;
@@ -48,11 +49,11 @@ impl<
     }
 }
 
-impl<
-        Input: Debug + Send + Sync + Clone + 'static,
-        Output: Debug + Send + Sync + 'static,
-        Error: From<OrchestratorError> + Send + Sync + 'static,
-    > GenericOrchestrator<Input, Output, Error>
+impl<Input, Output, Error> GenericOrchestrator<Input, Output, Error>
+where
+    Input: Debug + Send + Sync + Clone + 'static,
+    Output: Debug + Send + Sync + 'static,
+    Error: From<OrchestratorError> + Send + Sync + 'static,
 {
     /// Creates a new instance of [`GenericOrchestrator`].
     pub fn new() -> Self {
@@ -73,11 +74,11 @@ impl<
     }
 }
 
-impl<
-        Input: Debug + Send + Sync + Clone + 'static,
-        Output: Debug + Send + Sync + 'static,
-        Error: From<OrchestratorError> + Send + Sync + 'static,
-    > Default for GenericOrchestrator<Input, Output, Error>
+impl<Input, Output, Error> Default for GenericOrchestrator<Input, Output, Error>
+where
+    Input: Debug + Send + Sync + Clone + 'static,
+    Output: Debug + Send + Sync + 'static,
+    Error: From<OrchestratorError> + Send + Sync + 'static,
 {
     fn default() -> Self {
         Self::new()

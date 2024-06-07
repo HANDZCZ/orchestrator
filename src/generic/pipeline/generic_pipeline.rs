@@ -33,12 +33,16 @@ pub struct AnyNodeInput;
 /// That takes some input type and returns some output type or some error type.
 #[derive(Debug)]
 pub struct GenericPipeline<
+    Input,
+    Output,
+    Error,
+    NextNodeInput = AnyNodeInput,
+    State = PipelineStateNew,
+> where
     Input: Debug + Send + Sync + Clone + 'static,
     Output: Debug + Send + Sync + 'static,
     Error: From<PipelineError> + Send + Sync + 'static,
-    NextNodeInput = AnyNodeInput,
-    State = PipelineStateNew,
-> {
+{
     _input: PhantomData<Input>,
     _output: PhantomData<Output>,
     _next_node_input: PhantomData<NextNodeInput>,
@@ -62,11 +66,23 @@ pub enum PipelineError {
     },
 }
 
-impl<
-        Input: Debug + Send + Sync + Clone + 'static,
-        Output: Debug + Send + Sync + 'static,
-        Error: From<PipelineError> + Send + Sync + 'static,
-    > GenericPipeline<Input, Output, Error, AnyNodeInput, PipelineStateNew>
+/// Specifies the type for new [GenericPipeline].
+pub type GenericPipelineNew<Input, Output, Error> =
+    GenericPipeline<Input, Output, Error, AnyNodeInput, PipelineStateNew>;
+
+/// Specifies the type for [GenericPipeline] that is in the process of adding nodes.
+pub type GenericPipelineAddingNodes<Input, Output, Error, NextNodeInput> =
+    GenericPipeline<Input, Output, Error, NextNodeInput, PipelineStateAddingNodes>;
+
+/// Specifies the type for built [GenericPipeline].
+pub type GenericPipelineBuilt<Input, Output, Error> =
+    GenericPipeline<Input, Output, Error, Output, PipelineStateBuilt>;
+
+impl<Input, Output, Error> GenericPipelineNew<Input, Output, Error>
+where
+    Input: Debug + Send + Sync + Clone + 'static,
+    Output: Debug + Send + Sync + 'static,
+    Error: From<PipelineError> + Send + Sync + 'static,
 {
     /// Creates new instance of [`GenericPipeline`].
     pub fn new() -> Self {
@@ -80,11 +96,22 @@ impl<
     }
 }
 
-impl<
-        Input: Debug + Send + Sync + Clone + 'static,
-        Output: Debug + Send + Sync + 'static,
-        Error: From<PipelineError> + Send + Sync + 'static,
-    > GenericPipeline<Input, Output, Error, Output, PipelineStateBuilt>
+impl<Input, Output, Error> Default for GenericPipelineNew<Input, Output, Error>
+where
+    Input: Debug + Send + Sync + Clone + 'static,
+    Output: Debug + Send + Sync + 'static,
+    Error: From<PipelineError> + Send + Sync + 'static,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<Input, Output, Error> GenericPipelineBuilt<Input, Output, Error>
+where
+    Input: Debug + Send + Sync + Clone + 'static,
+    Output: Debug + Send + Sync + 'static,
+    Error: From<PipelineError> + Send + Sync + 'static,
 {
     fn get_node_index(&self, ty: TypeId) -> Option<usize> {
         self.nodes
@@ -118,11 +145,11 @@ pub enum PipelineOutput<T> {
 }
 
 #[async_trait]
-impl<
-        Input: Debug + Send + Sync + Clone + 'static,
-        Output: Debug + Send + Sync + 'static,
-        Error: From<PipelineError> + Send + Sync + 'static,
-    > Pipeline for GenericPipeline<Input, Output, Error, Output, PipelineStateBuilt>
+impl<Input, Output, Error> Pipeline for GenericPipelineBuilt<Input, Output, Error>
+where
+    Input: Debug + Send + Sync + Clone + 'static,
+    Output: Debug + Send + Sync + 'static,
+    Error: From<PipelineError> + Send + Sync + 'static,
 {
     type Input = Input;
     type Output = PipelineOutput<Output>;
@@ -206,19 +233,23 @@ impl<
     }
 }
 
-impl<
-        Input: Debug + Send + Sync + Clone + 'static,
-        Output: Debug + Send + Sync + 'static,
-        Error: From<PipelineError> + Send + Sync + 'static,
-    > GenericPipeline<Input, Output, Error, AnyNodeInput, PipelineStateNew>
+impl<Input, Output, Error> GenericPipelineNew<Input, Output, Error>
+where
+    Input: Debug + Send + Sync + Clone + 'static,
+    Output: Debug + Send + Sync + 'static,
+    Error: From<PipelineError> + Send + Sync + 'static,
 {
     /// Adds node to the [`GenericPipeline`].
-    pub fn add_node<NodeError: Into<Error>, NodeOutput>(
+    pub fn add_node<NodeType, NodeOutput, NodeError>(
         mut self,
-        node: impl Node<Error = NodeError, Input = Input, Output = NodeOutput> + Debug,
-    ) -> GenericPipeline<Input, Output, Error, NodeOutput, PipelineStateAddingNodes> {
+        node: NodeType,
+    ) -> GenericPipelineAddingNodes<Input, Output, Error, NodeOutput>
+    where
+        NodeType: Node<Error = NodeError, Input = Input, Output = NodeOutput> + Debug,
+        NodeError: Into<Error>,
+    {
         self.nodes.push(Box::new(InternalNodeStruct::new(node)));
-        GenericPipeline {
+        GenericPipelineAddingNodes {
             _input: PhantomData,
             _output: PhantomData,
             _next_node_input: PhantomData,
@@ -228,20 +259,23 @@ impl<
     }
 }
 
-impl<
-        Input: Debug + Send + Sync + Clone + 'static,
-        Output: Debug + Send + Sync + 'static,
-        Error: From<PipelineError> + Send + Sync + 'static,
-        NodeInput,
-    > GenericPipeline<Input, Output, Error, NodeInput, PipelineStateAddingNodes>
+impl<Input, Output, Error, NodeInput> GenericPipelineAddingNodes<Input, Output, Error, NodeInput>
+where
+    Input: Debug + Send + Sync + Clone + 'static,
+    Output: Debug + Send + Sync + 'static,
+    Error: From<PipelineError> + Send + Sync + 'static,
 {
     /// Adds node to the [`GenericPipeline`].
-    pub fn add_node<NodeError: Into<Error>, NodeOutput>(
+    pub fn add_node<NodeType, NodeOutput, NodeError>(
         mut self,
-        node: impl Node<Error = NodeError, Input = NodeInput, Output = NodeOutput> + Debug,
-    ) -> GenericPipeline<Input, Output, Error, NodeOutput, PipelineStateAddingNodes> {
+        node: NodeType,
+    ) -> GenericPipelineAddingNodes<Input, Output, Error, NodeOutput>
+    where
+        NodeType: Node<Error = NodeError, Input = NodeInput, Output = NodeOutput> + Debug,
+        NodeError: Into<Error>,
+    {
         self.nodes.push(Box::new(InternalNodeStruct::new(node)));
-        GenericPipeline {
+        GenericPipelineAddingNodes {
             _input: PhantomData,
             _output: PhantomData,
             _next_node_input: PhantomData,
@@ -251,15 +285,15 @@ impl<
     }
 }
 
-impl<
-        Input: Debug + Send + Sync + Clone + 'static,
-        Output: Debug + Send + Sync + 'static,
-        Error: From<PipelineError> + Send + Sync + 'static,
-    > GenericPipeline<Input, Output, Error, Output, PipelineStateAddingNodes>
+impl<Input, Output, Error> GenericPipelineAddingNodes<Input, Output, Error, Output>
+where
+    Input: Debug + Send + Sync + Clone + 'static,
+    Output: Debug + Send + Sync + 'static,
+    Error: From<PipelineError> + Send + Sync + 'static,
 {
     /// Finalizes the pipeline so any more nodes can't be added to it.
-    pub fn finish(self) -> GenericPipeline<Input, Output, Error, Output, PipelineStateBuilt> {
-        GenericPipeline {
+    pub fn finish(self) -> GenericPipelineBuilt<Input, Output, Error> {
+        GenericPipelineBuilt {
             _input: PhantomData,
             _output: PhantomData,
             _next_node_input: PhantomData,
