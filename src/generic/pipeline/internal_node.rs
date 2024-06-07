@@ -1,6 +1,7 @@
 use std::{
     any::{self, Any, TypeId},
     fmt::Debug,
+    marker::PhantomData,
 };
 
 use async_trait::async_trait;
@@ -15,38 +16,62 @@ pub enum InternalNodeOutput {
 
 #[async_trait]
 pub trait InternalNode<Error>: Debug + Send + Sync {
-    async fn run(&mut self, input: Box<dyn Any + Send + Sync>)
-        -> Result<InternalNodeOutput, Error>;
+    async fn run(
+        &mut self,
+        input: Box<dyn Any + Send + Sync>,
+        piped: bool,
+    ) -> Result<InternalNodeOutput, Error>;
     fn duplicate(&self) -> Box<dyn InternalNode<Error>>;
     fn get_node_type(&self) -> TypeId;
     fn get_node_type_name(&self) -> &'static str;
 }
 
 #[derive(Debug)]
-pub struct InternalNodeStruct<NodeType: Node> {
+pub struct InternalNodeStruct<NodeType: Node, PreviousNodeOutputType> {
+    _previous_node_output_type: PhantomData<PreviousNodeOutputType>,
     node: NodeType,
 }
 
-impl<NodeType: Node> InternalNodeStruct<NodeType> {
+impl<NodeType, PreviousNodeOutputType> InternalNodeStruct<NodeType, PreviousNodeOutputType>
+where
+    NodeType: Node,
+    PreviousNodeOutputType: Into<NodeType::Input> + 'static,
+{
     pub fn new(node: NodeType) -> Self {
-        Self { node }
+        Self {
+            _previous_node_output_type: PhantomData,
+            node,
+        }
+    }
+
+    fn get_input(&self, input: Box<dyn Any + Send + Sync>, piped: bool) -> Option<NodeType::Input> {
+        Some(match piped {
+            true => *input.downcast::<NodeType::Input>().ok()?,
+            false => {
+                let input = input.downcast::<PreviousNodeOutputType>().ok()?;
+                (*input).into()
+            }
+        })
     }
 }
 
 #[async_trait]
-impl<NodeType, Error, NodeError> InternalNode<Error> for InternalNodeStruct<NodeType>
+impl<NodeType, Error, PreviousNodeOutputType> InternalNode<Error>
+    for InternalNodeStruct<NodeType, PreviousNodeOutputType>
 where
-    NodeType: Node<Error = NodeError> + Debug,
-    NodeError: Into<Error>,
+    NodeType: Node + Debug,
+    NodeType::Error: Into<Error>,
+    PreviousNodeOutputType: Send + Sync + Debug + 'static + Into<NodeType::Input>,
 {
     async fn run(
         &mut self,
         input: Box<dyn Any + Send + Sync>,
+        piped: bool,
     ) -> Result<InternalNodeOutput, Error> {
-        let Ok(input) = input.downcast::<NodeType::Input>() else {
+        let Some(input) = self.get_input(input, piped) else {
             return Ok(InternalNodeOutput::WrongInputType);
         };
-        let output = self.node.run(*input).await.map_err(|e| e.into())?;
+        let output = self.node.run(input).await.map_err(|e| e.into())?;
         Ok(InternalNodeOutput::NodeOutput(match output {
             NodeOutput::PipeToNode(next_node) => NodeOutput::PipeToNode(next_node),
             NodeOutput::SoftFail => NodeOutput::SoftFail,
@@ -58,6 +83,7 @@ where
     }
     fn duplicate(&self) -> Box<dyn InternalNode<Error>> {
         Box::new(Self {
+            _previous_node_output_type: PhantomData,
             node: self.node.clone(),
         })
     }

@@ -172,6 +172,46 @@ async fn pipeline_success() {
     assert_eq!(res, Ok(PipelineOutput::Done("match".to_owned())));
 }
 
+#[derive(Clone, Debug)]
+struct StringToIsOk;
+
+#[async_trait]
+impl Node for StringToIsOk {
+    type Input = String;
+    type Output = IsOk;
+    type Error = NotDoingItError;
+
+    async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+        Self::advance(IsOk(input)).into()
+    }
+}
+
+#[derive(Clone, Debug)]
+struct IsOkToString;
+
+#[async_trait]
+impl Node for IsOkToString {
+    type Input = IsOk;
+    type Output = String;
+    type Error = NotDoingItError;
+
+    async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+        Self::advance(input.0).into()
+    }
+}
+
+#[tokio::test]
+async fn pipeline_io_conversion_success() {
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+        .add_node(StringToIsOk)
+        .add_node(Downloader)
+        .add_node(IsOkToString)
+        .add_node(Parser { times: 3 })
+        .finish();
+    let res = pipeline.run("match".into()).await;
+    assert_eq!(res, Ok(PipelineOutput::Done("match".to_owned())));
+}
+
 #[tokio::test]
 async fn soft_fail() {
     let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()

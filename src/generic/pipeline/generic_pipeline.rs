@@ -157,10 +157,11 @@ where
 
     async fn run(&self, input: Self::Input) -> Result<Self::Output, Self::Error> {
         let mut data: Box<dyn Any + Sync + Send> = Box::new(input);
+        let mut piped = false;
         let mut index = 0;
         let mut prev_index = 0;
         let mut first = self.nodes[0].duplicate();
-        match first.run(data).await? {
+        match first.run(data, piped).await? {
             InternalNodeOutput::NodeOutput(NodeOutput::SoftFail) => {
                 return Ok(PipelineOutput::SoftFail)
             }
@@ -173,6 +174,7 @@ where
                 next_node_type_name,
             })) => {
                 data = output;
+                piped = true;
                 index = self.get_node_index(next_node_type).ok_or(Error::from(
                     PipelineError::NodeWithTypeNotFound {
                         node_type_name: next_node_type_name,
@@ -181,11 +183,12 @@ where
             }
             InternalNodeOutput::NodeOutput(NodeOutput::Advance(output)) => {
                 data = output;
+                piped = false;
                 index += 1;
             }
             InternalNodeOutput::WrongInputType => {
                 unreachable!(
-                    "Type safety for the win!\n\tIf you reach this something web seriously wrong."
+                    "Type safety for the win!\n\tIf you reach this something went seriously wrong."
                 );
             }
         };
@@ -200,7 +203,7 @@ where
                 return Self::get_pipeline_output(data, &**prev_node);
             }
             let node = &mut nodes[index];
-            match node.run(data).await? {
+            match node.run(data, piped).await? {
                 InternalNodeOutput::NodeOutput(NodeOutput::SoftFail) => {
                     return Ok(PipelineOutput::SoftFail)
                 }
@@ -213,6 +216,7 @@ where
                     next_node_type_name,
                 })) => {
                     data = output;
+                    piped = true;
                     prev_index = index;
                     index = self.get_node_index(next_node_type).ok_or(Error::from(
                         PipelineError::NodeWithTypeNotFound {
@@ -222,11 +226,12 @@ where
                 }
                 InternalNodeOutput::NodeOutput(NodeOutput::Advance(output)) => {
                     data = output;
+                    piped = false;
                     prev_index = index;
                     index += 1;
                 }
                 InternalNodeOutput::WrongInputType => {
-                    unreachable!("Type safety for the win!\n\tIf you reach this something web seriously wrong.");
+                    unreachable!("Type safety for the win!\n\tIf you reach this something went seriously wrong.");
                 }
             }
         }
@@ -248,7 +253,7 @@ where
         NodeType: Node<Error = NodeError, Input = Input, Output = NodeOutput> + Debug,
         NodeError: Into<Error>,
     {
-        self.nodes.push(Box::new(InternalNodeStruct::new(node)));
+        self.nodes.push(Box::new(InternalNodeStruct::<NodeType, Input>::new(node)));
         GenericPipelineAddingNodes {
             _input: PhantomData,
             _output: PhantomData,
@@ -264,6 +269,7 @@ where
     Input: Debug + Send + Sync + Clone + 'static,
     Output: Debug + Send + Sync + 'static,
     Error: From<PipelineError> + Send + Sync + 'static,
+    NodeInput: Debug + Send + Sync + 'static,
 {
     /// Adds node to the [`GenericPipeline`].
     pub fn add_node<NodeType, NodeOutput, NodeError>(
@@ -271,10 +277,11 @@ where
         node: NodeType,
     ) -> GenericPipelineAddingNodes<Input, Output, Error, NodeOutput>
     where
-        NodeType: Node<Error = NodeError, Input = NodeInput, Output = NodeOutput> + Debug,
+        NodeType: Node<Error = NodeError, Output = NodeOutput> + Debug,
         NodeError: Into<Error>,
+        NodeInput: Into<NodeType::Input>,
     {
-        self.nodes.push(Box::new(InternalNodeStruct::new(node)));
+        self.nodes.push(Box::new(InternalNodeStruct::<NodeType, NodeInput>::new(node)));
         GenericPipelineAddingNodes {
             _input: PhantomData,
             _output: PhantomData,
