@@ -243,7 +243,10 @@ async fn wrong_output() {
         .add_node(NotDoingIt2)
         .finish();
     let res = pipeline.run(()).await;
-    assert_eq!(res, Err(MyPipelineError::WrongPipelineOutput("generics::NotDoingIt")))
+    assert_eq!(
+        res,
+        Err(MyPipelineError::WrongPipelineOutput("generics::NotDoingIt"))
+    )
 }
 
 #[tokio::test]

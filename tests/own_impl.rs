@@ -160,7 +160,11 @@ impl From<()> for MyOrchestratorError<()> {
 #[tokio::test]
 async fn generic_orchestrator_io_conversion_success() {
     let input = IsOk("Nice".to_owned());
-    let mut orchestrator = orchestrator::generic::orchestrator::GenericOrchestrator::<IsOk, IsOk, MyOrchestratorError<()>>::default();
+    let mut orchestrator = orchestrator::generic::orchestrator::GenericOrchestrator::<
+        IsOk,
+        IsOk,
+        MyOrchestratorError<()>,
+    >::default();
     orchestrator.add_pipeline(SoftFailPipeline::<String>::default());
     orchestrator.add_pipeline(SoftFailPipeline::<String>::default());
     orchestrator.add_pipeline(SoftFailPipeline::<String>::default());

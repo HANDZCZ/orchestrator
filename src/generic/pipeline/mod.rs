@@ -1,4 +1,4 @@
-mod internal_node;
 mod generic_pipeline;
+mod internal_node;
 
 pub use generic_pipeline::*;
