@@ -5,7 +5,7 @@ use orchestrator::{
     generic::pipeline::PipelineOutput, orchestrator::Orchestrator, pipeline::Pipeline,
 };
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct ForwardPipeline<T: Default> {
     _type: PhantomData<T>,
 }
@@ -53,7 +53,7 @@ async fn pipeline_fail() {
     assert_eq!(output, Err(()));
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct SoftFailPipeline<T: Default> {
     _type: PhantomData<T>,
 }
@@ -130,6 +130,44 @@ async fn orchestrator_success() {
     assert_eq!(output, Ok(input));
     let ran = orchestrator.ran.read().unwrap();
     assert_eq!(*ran, 6);
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct IsOk(String);
+
+impl From<String> for IsOk {
+    fn from(value: String) -> Self {
+        IsOk(value)
+    }
+}
+impl From<IsOk> for String {
+    fn from(value: IsOk) -> Self {
+        value.0
+    }
+}
+
+impl<T> From<orchestrator::generic::orchestrator::OrchestratorError> for MyOrchestratorError<T> {
+    fn from(_value: orchestrator::generic::orchestrator::OrchestratorError) -> Self {
+        Self::AllPipelinesSoftFailed
+    }
+}
+impl From<()> for MyOrchestratorError<()> {
+    fn from(_value: ()) -> Self {
+        Self::PipelineError(())
+    }
+}
+
+#[tokio::test]
+async fn generic_orchestrator_io_conversion_success() {
+    let input = IsOk("Nice".to_owned());
+    let mut orchestrator = orchestrator::generic::orchestrator::GenericOrchestrator::<IsOk, IsOk, MyOrchestratorError<()>>::default();
+    orchestrator.add_pipeline(SoftFailPipeline::<String>::default());
+    orchestrator.add_pipeline(SoftFailPipeline::<String>::default());
+    orchestrator.add_pipeline(SoftFailPipeline::<String>::default());
+    orchestrator.add_pipeline(SoftFailPipeline::<String>::default());
+    orchestrator.add_pipeline(ForwardPipeline::<String>::default());
+    let output = orchestrator.run(input.clone()).await;
+    assert_eq!(output, Ok(input));
 }
 
 #[tokio::test]

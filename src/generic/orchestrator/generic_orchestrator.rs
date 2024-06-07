@@ -2,9 +2,9 @@ use std::fmt::Debug;
 
 use async_trait::async_trait;
 
-use crate::{generic::pipeline::PipelineOutput, orchestrator::Orchestrator, pipeline::Pipeline};
+use crate::{orchestrator::Orchestrator, pipeline::Pipeline};
 
-use super::internal_pipeline::{InternalPipeline, InternalPipelineStruct};
+use super::internal_pipeline::{InternalPipeline, InternalPipelineOutput, InternalPipelineStruct};
 
 /// Defines which errors can occur in [`GenericOrchestrator`].
 #[derive(Debug)]
@@ -24,7 +24,7 @@ where
     Output: Send + Sync + 'static,
     Error: From<OrchestratorError> + Send + Sync + 'static,
 {
-    pipelines: Vec<Box<dyn InternalPipeline<Input, PipelineOutput<Output>, Error>>>,
+    pipelines: Vec<Box<dyn InternalPipeline<Input, InternalPipelineOutput<Output>, Error>>>,
 }
 
 #[async_trait]
@@ -41,8 +41,8 @@ where
     async fn run(&self, input: Self::Input) -> Result<Self::Output, Self::Error> {
         for pipeline in &self.pipelines {
             match pipeline.run(input.clone()).await? {
-                PipelineOutput::SoftFail => continue,
-                PipelineOutput::Done(output) => return Ok(output),
+                InternalPipelineOutput::SoftFail => continue,
+                InternalPipelineOutput::Done(output) => return Ok(output),
             }
         }
         Err(Error::from(OrchestratorError::AllPipelinesSoftFailed))
@@ -64,11 +64,16 @@ where
 
     /// Adds a pipeline to the [`GenericOrchestrator`] which needs to have same the input and output as the [`GenericOrchestrator`].
     /// It also needs to have an error type that implements `Into<OrchestratorErrorType>`.
-    pub fn add_pipeline<PipelineError: Into<Error>>(
+    pub fn add_pipeline<PipelineType, PipelineInput, PipelineOutput_, PipelineError>(
         &mut self,
-        pipeline: impl Pipeline<Input = Input, Output = PipelineOutput<Output>, Error = PipelineError>
+        pipeline: PipelineType,
+    ) where
+        PipelineType: Pipeline<Input = PipelineInput, Output = PipelineOutput_, Error = PipelineError>
             + Debug,
-    ) {
+        PipelineInput: From<Input>,
+        PipelineOutput_: Into<InternalPipelineOutput<Output>>,
+        PipelineError: Into<Error>,
+    {
         self.pipelines
             .push(Box::new(InternalPipelineStruct::new(pipeline)));
     }

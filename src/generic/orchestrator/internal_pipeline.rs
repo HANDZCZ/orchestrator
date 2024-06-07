@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use async_trait::async_trait;
 
-use crate::pipeline::Pipeline;
+use crate::{generic::pipeline::PipelineOutput, pipeline::Pipeline};
 
 #[async_trait]
 pub trait InternalPipeline<Input, Output, Error>: Debug + Send + Sync {
@@ -20,15 +20,59 @@ impl<PipelineType: Pipeline> InternalPipelineStruct<PipelineType> {
 }
 
 #[async_trait]
-impl<
-        Input: Send + Sync + 'static,
-        Output: Send + Sync + 'static,
-        Error: Send + Sync + 'static,
-        PipelineType: Pipeline<Input = Input, Output = Output, Error = PipelineError> + Debug,
-        PipelineError: Into<Error>,
-    > InternalPipeline<Input, Output, Error> for InternalPipelineStruct<PipelineType>
+impl<Input, Output, Error, PipelineType, PipelineInput, PipelineOutput, PipelineError>
+    InternalPipeline<Input, Output, Error> for InternalPipelineStruct<PipelineType>
+where
+    Input: Send + Sync + 'static,
+    Output: Send + Sync + 'static,
+    Error: Send + Sync + 'static,
+    PipelineType:
+        Pipeline<Input = PipelineInput, Output = PipelineOutput, Error = PipelineError> + Debug,
+    PipelineInput: From<Input>,
+    PipelineOutput: Into<Output>,
+    PipelineError: Into<Error>,
 {
     async fn run(&self, input: Input) -> Result<Output, Error> {
-        self.pipeline.run(input).await.map_err(|e| e.into())
+        self.pipeline
+            .run(input.into())
+            .await
+            .map(|r| r.into())
+            .map_err(|e| e.into())
+    }
+}
+
+// Needed because specialization is not stable
+//
+// The following code gives conflicting implementations for impl<T> From<T> for T { ... } error
+// impl<T, U> From<PipelineOutput<U>> for PipelineOutput<T>
+// where
+//     U: Into<T>,
+// { ... }
+#[derive(Debug)]
+pub enum InternalPipelineOutput<T> {
+    SoftFail,
+    Done(T),
+}
+
+impl<T, U> From<PipelineOutput<U>> for InternalPipelineOutput<T>
+where
+    U: Into<T>,
+{
+    fn from(value: PipelineOutput<U>) -> Self {
+        match value {
+            PipelineOutput::SoftFail => InternalPipelineOutput::SoftFail,
+            PipelineOutput::Done(val) => InternalPipelineOutput::Done(val.into()),
+        }
+    }
+}
+
+impl<T> From<T> for InternalPipelineOutput<T>
+where
+    T: Into<PipelineOutput<T>>,
+{
+    fn from(value: T) -> Self {
+        // ¯\_(ツ)_/¯
+        // T -> PipelineOutput<T> -> InternalPipelineOutput<T>
+        value.into().into()
     }
 }

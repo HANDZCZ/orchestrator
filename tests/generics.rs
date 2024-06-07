@@ -220,6 +220,34 @@ async fn orchestrator_success() {
     assert_eq!(res, Ok("match".to_owned()));
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct IsOk(String);
+
+impl From<String> for IsOk {
+    fn from(value: String) -> Self {
+        IsOk(value)
+    }
+}
+impl From<IsOk> for String {
+    fn from(value: IsOk) -> Self {
+        value.0
+    }
+}
+
+#[tokio::test]
+async fn orchestrator_io_conversion_success() {
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+        .add_node(Matcher)
+        .add_node(Downloader)
+        .add_node(Parser { times: 3 })
+        .finish();
+    let mut orchestrator: GenericOrchestrator<IsOk, IsOk, MyOrchestratorError> =
+        GenericOrchestrator::new();
+    orchestrator.add_pipeline(pipeline);
+    let res = orchestrator.run(IsOk("match".into())).await;
+    assert_eq!(res, Ok(IsOk("match".to_owned())));
+}
+
 #[tokio::test]
 async fn orchestrator_no_pipeline() {
     let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
