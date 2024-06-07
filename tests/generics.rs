@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
-use async_trait::async_trait;
 use orchestrator::{
+    async_trait,
     generic::{
         node::{Node, NodeOutput, Returnable},
         orchestrator::{GenericOrchestrator, OrchestratorError},

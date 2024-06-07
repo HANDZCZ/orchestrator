@@ -7,4 +7,6 @@ edition = "2021"
 
 [dependencies]
 async-trait = "0.1.80"
+
+[dev-dependencies]
 tokio = { version = "1.38.0", features = ["full"] }

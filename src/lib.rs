@@ -18,3 +18,4 @@ pub mod generic;
 pub mod orchestrator;
 /// Module that houses stuff related to [`Pipeline`](crate::pipeline::Pipeline) type
 pub mod pipeline;
+pub use async_trait::async_trait;
