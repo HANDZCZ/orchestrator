@@ -41,7 +41,8 @@ pub struct GenericPipeline<
 > where
     Input: Debug + Send + Sync + Clone + 'static,
     Output: Debug + Send + Sync + 'static,
-    Error: From<PipelineError> + Send + Sync + 'static,
+    Error: Send + Sync + 'static,
+    PipelineError: Into<Error>,
 {
     _input: PhantomData<Input>,
     _output: PhantomData<Output>,
@@ -82,7 +83,8 @@ impl<Input, Output, Error> GenericPipelineNew<Input, Output, Error>
 where
     Input: Debug + Send + Sync + Clone + 'static,
     Output: Debug + Send + Sync + 'static,
-    Error: From<PipelineError> + Send + Sync + 'static,
+    Error: Send + Sync + 'static,
+    PipelineError: Into<Error>,
 {
     /// Creates new instance of [`GenericPipeline`].
     pub fn new() -> Self {
@@ -100,7 +102,8 @@ impl<Input, Output, Error> Default for GenericPipelineNew<Input, Output, Error>
 where
     Input: Debug + Send + Sync + Clone + 'static,
     Output: Debug + Send + Sync + 'static,
-    Error: From<PipelineError> + Send + Sync + 'static,
+    Error: Send + Sync + 'static,
+    PipelineError: Into<Error>,
 {
     fn default() -> Self {
         Self::new()
@@ -111,7 +114,8 @@ impl<Input, Output, Error> GenericPipelineBuilt<Input, Output, Error>
 where
     Input: Debug + Send + Sync + Clone + 'static,
     Output: Debug + Send + Sync + 'static,
-    Error: From<PipelineError> + Send + Sync + 'static,
+    Error: Send + Sync + 'static,
+    PipelineError: Into<Error>,
 {
     fn get_node_index(&self, ty: TypeId) -> Option<usize> {
         self.nodes
@@ -126,9 +130,10 @@ where
     ) -> Result<PipelineOutput<Output>, Error> {
         match data.downcast::<Output>() {
             Ok(output) => Ok(PipelineOutput::Done(*output)),
-            Err(_) => Err(Error::from(PipelineError::WrongOutputTypeForPipeline {
+            Err(_) => Err(PipelineError::WrongOutputTypeForPipeline {
                 node_type_name: node.get_node_type_name(),
-            })),
+            }
+            .into()),
         }
     }
 }
@@ -149,7 +154,8 @@ impl<Input, Output, Error> Pipeline for GenericPipelineBuilt<Input, Output, Erro
 where
     Input: Debug + Send + Sync + Clone + 'static,
     Output: Debug + Send + Sync + 'static,
-    Error: From<PipelineError> + Send + Sync + 'static,
+    Error: Send + Sync + 'static,
+    PipelineError: Into<Error>,
 {
     type Input = Input;
     type Output = PipelineOutput<Output>;
@@ -175,11 +181,12 @@ where
             })) => {
                 data = output;
                 piped = true;
-                index = self.get_node_index(next_node_type).ok_or(Error::from(
+                index = self.get_node_index(next_node_type).ok_or(
                     PipelineError::NodeWithTypeNotFound {
                         node_type_name: next_node_type_name,
-                    },
-                ))?;
+                    }
+                    .into(),
+                )?;
             }
             InternalNodeOutput::NodeOutput(NodeOutput::Advance(output)) => {
                 data = output;
@@ -218,11 +225,12 @@ where
                     data = output;
                     piped = true;
                     prev_index = index;
-                    index = self.get_node_index(next_node_type).ok_or(Error::from(
+                    index = self.get_node_index(next_node_type).ok_or(
                         PipelineError::NodeWithTypeNotFound {
                             node_type_name: next_node_type_name,
-                        },
-                    ))?;
+                        }
+                        .into(),
+                    )?;
                 }
                 InternalNodeOutput::NodeOutput(NodeOutput::Advance(output)) => {
                     data = output;
@@ -242,7 +250,8 @@ impl<Input, Output, Error> GenericPipelineNew<Input, Output, Error>
 where
     Input: Debug + Send + Sync + Clone + 'static,
     Output: Debug + Send + Sync + 'static,
-    Error: From<PipelineError> + Send + Sync + 'static,
+    Error: Send + Sync + 'static,
+    PipelineError: Into<Error>,
 {
     /// Adds node to the [`GenericPipeline`].
     pub fn add_node<NodeType, NodeOutput, NodeError>(
@@ -253,7 +262,8 @@ where
         NodeType: Node<Error = NodeError, Input = Input, Output = NodeOutput> + Debug,
         NodeError: Into<Error>,
     {
-        self.nodes.push(Box::new(InternalNodeStruct::<NodeType, Input>::new(node)));
+        self.nodes
+            .push(Box::new(InternalNodeStruct::<NodeType, Input>::new(node)));
         GenericPipelineAddingNodes {
             _input: PhantomData,
             _output: PhantomData,
@@ -268,7 +278,8 @@ impl<Input, Output, Error, NodeInput> GenericPipelineAddingNodes<Input, Output, 
 where
     Input: Debug + Send + Sync + Clone + 'static,
     Output: Debug + Send + Sync + 'static,
-    Error: From<PipelineError> + Send + Sync + 'static,
+    Error: Send + Sync + 'static,
+    PipelineError: Into<Error>,
     NodeInput: Debug + Send + Sync + 'static,
 {
     /// Adds node to the [`GenericPipeline`].
@@ -281,7 +292,10 @@ where
         NodeError: Into<Error>,
         NodeInput: Into<NodeType::Input>,
     {
-        self.nodes.push(Box::new(InternalNodeStruct::<NodeType, NodeInput>::new(node)));
+        self.nodes
+            .push(Box::new(InternalNodeStruct::<NodeType, NodeInput>::new(
+                node,
+            )));
         GenericPipelineAddingNodes {
             _input: PhantomData,
             _output: PhantomData,
@@ -296,7 +310,8 @@ impl<Input, Output, Error> GenericPipelineAddingNodes<Input, Output, Error, Outp
 where
     Input: Debug + Send + Sync + Clone + 'static,
     Output: Debug + Send + Sync + 'static,
-    Error: From<PipelineError> + Send + Sync + 'static,
+    Error: Send + Sync + 'static,
+    PipelineError: Into<Error>,
 {
     /// Finalizes the pipeline so any more nodes can't be added to it.
     pub fn finish(self) -> GenericPipelineBuilt<Input, Output, Error> {

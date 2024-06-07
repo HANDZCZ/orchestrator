@@ -28,7 +28,7 @@ where
     Error: Send + Sync + 'static,
     PipelineType:
         Pipeline<Input = PipelineInput, Output = PipelineOutput, Error = PipelineError> + Debug,
-    PipelineInput: From<Input>,
+    Input: Into<PipelineInput>,
     PipelineOutput: Into<Output>,
     PipelineError: Into<Error>,
 {

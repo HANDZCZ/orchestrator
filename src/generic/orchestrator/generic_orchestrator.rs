@@ -22,7 +22,8 @@ pub struct GenericOrchestrator<Input, Output, Error>
 where
     Input: Send + Sync + Clone + 'static,
     Output: Send + Sync + 'static,
-    Error: From<OrchestratorError> + Send + Sync + 'static,
+    Error: Send + Sync + 'static,
+    OrchestratorError: Into<Error>,
 {
     pipelines: Vec<Box<dyn InternalPipeline<Input, InternalPipelineOutput<Output>, Error>>>,
 }
@@ -32,7 +33,8 @@ impl<Input, Output, Error> Orchestrator for GenericOrchestrator<Input, Output, E
 where
     Input: Debug + Send + Sync + Clone + 'static,
     Output: Debug + Send + Sync + 'static,
-    Error: From<OrchestratorError> + Send + Sync + 'static,
+    Error: Send + Sync + 'static,
+    OrchestratorError: Into<Error>,
 {
     type Input = Input;
     type Output = Output;
@@ -45,7 +47,7 @@ where
                 InternalPipelineOutput::Done(output) => return Ok(output),
             }
         }
-        Err(Error::from(OrchestratorError::AllPipelinesSoftFailed))
+        Err(OrchestratorError::AllPipelinesSoftFailed.into())
     }
 }
 
@@ -53,7 +55,8 @@ impl<Input, Output, Error> GenericOrchestrator<Input, Output, Error>
 where
     Input: Debug + Send + Sync + Clone + 'static,
     Output: Debug + Send + Sync + 'static,
-    Error: From<OrchestratorError> + Send + Sync + 'static,
+    Error: Send + Sync + 'static,
+    OrchestratorError: Into<Error>,
 {
     /// Creates a new instance of [`GenericOrchestrator`].
     pub fn new() -> Self {
@@ -70,7 +73,7 @@ where
     ) where
         PipelineType: Pipeline<Input = PipelineInput, Output = PipelineOutput_, Error = PipelineError>
             + Debug,
-        PipelineInput: From<Input>,
+        Input: Into<PipelineInput>,
         PipelineOutput_: Into<InternalPipelineOutput<Output>>,
         PipelineError: Into<Error>,
     {
@@ -83,7 +86,8 @@ impl<Input, Output, Error> Default for GenericOrchestrator<Input, Output, Error>
 where
     Input: Debug + Send + Sync + Clone + 'static,
     Output: Debug + Send + Sync + 'static,
-    Error: From<OrchestratorError> + Send + Sync + 'static,
+    Error: Send + Sync + 'static,
+    OrchestratorError: Into<Error>,
 {
     fn default() -> Self {
         Self::new()
