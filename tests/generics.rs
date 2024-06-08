@@ -51,43 +51,43 @@ impl From<PipelineError> for MyPipelineError {
     }
 }
 
-impl From<MatcherError> for MyPipelineError {
-    fn from(_value: MatcherError) -> Self {
+impl From<StringMatcherError> for MyPipelineError {
+    fn from(_value: StringMatcherError) -> Self {
         Self::SomeNodeError
     }
 }
 
-impl From<DownloaderError> for MyPipelineError {
-    fn from(_value: DownloaderError) -> Self {
+impl From<StringForwarderError> for MyPipelineError {
+    fn from(_value: StringForwarderError) -> Self {
         Self::SomeNodeError
     }
 }
 
-impl From<ParserError> for MyPipelineError {
-    fn from(_value: ParserError) -> Self {
+impl From<RepeatPipeToStringForwarderError> for MyPipelineError {
+    fn from(_value: RepeatPipeToStringForwarderError) -> Self {
         Self::SomeNodeError
     }
 }
 
-impl From<NotDoingItError> for MyPipelineError {
-    fn from(_value: NotDoingItError) -> Self {
+impl From<NodeEarlyReturnError> for MyPipelineError {
+    fn from(_value: NodeEarlyReturnError) -> Self {
         Self::SomeNodeError
     }
 }
 
 #[derive(Clone, Debug)]
-struct Matcher;
+struct StringMatcher(&'static str);
 #[derive(Debug)]
-struct MatcherError;
+struct StringMatcherError;
 
 #[async_trait]
-impl Node for Matcher {
+impl Node for StringMatcher {
     type Input = String;
     type Output = String;
-    type Error = MatcherError;
+    type Error = StringMatcherError;
 
     async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
-        if !input.contains("match") {
+        if !input.contains(self.0) {
             return Self::soft_fail().into();
         }
         Self::advance(input).into()
@@ -95,15 +95,15 @@ impl Node for Matcher {
 }
 
 #[derive(Clone, Debug)]
-struct Downloader;
+struct StringForwarder;
 #[derive(Debug)]
-struct DownloaderError;
+struct StringForwarderError;
 
 #[async_trait]
-impl Node for Downloader {
+impl Node for StringForwarder {
     type Input = String;
     type Output = String;
-    type Error = DownloaderError;
+    type Error = StringForwarderError;
 
     async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
         Self::advance(input).into()
@@ -111,50 +111,50 @@ impl Node for Downloader {
 }
 
 #[derive(Clone, Debug)]
-struct Parser {
+struct RepeatPipeToStringForwarder {
     times: usize,
 }
 #[derive(Debug)]
-struct ParserError;
+struct RepeatPipeToStringForwarderError;
 
 #[async_trait]
-impl Node for Parser {
+impl Node for RepeatPipeToStringForwarder {
     type Input = String;
     type Output = String;
-    type Error = ParserError;
+    type Error = RepeatPipeToStringForwarderError;
 
     async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
         if self.times == 0 {
             return Self::return_from_pipeline(input).into();
         }
         self.times -= 1;
-        Self::pipe_to::<Downloader>(input).into()
+        Self::pipe_to::<StringForwarder>(input).into()
     }
 }
 
-#[derive(Debug)]
-struct NotDoingItError;
 #[derive(Clone, Debug)]
-struct NotDoingIt;
+struct UnitToStringEarlyReturnString;
+#[derive(Debug)]
+struct NodeEarlyReturnError;
 
 #[async_trait]
-impl Node for NotDoingIt {
+impl Node for UnitToStringEarlyReturnString {
     type Input = ();
     type Output = String;
-    type Error = NotDoingItError;
+    type Error = NodeEarlyReturnError;
 
     async fn run(&mut self, _input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
         Self::return_from_pipeline("".to_string()).into()
     }
 }
 #[derive(Clone, Debug)]
-struct NotDoingIt2;
+struct StringToUnitEarlyReturnUnit;
 
 #[async_trait]
-impl Node for NotDoingIt2 {
+impl Node for StringToUnitEarlyReturnUnit {
     type Input = String;
     type Output = ();
-    type Error = NotDoingItError;
+    type Error = NodeEarlyReturnError;
 
     async fn run(&mut self, _input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
         Self::return_from_pipeline(()).into()
@@ -164,9 +164,9 @@ impl Node for NotDoingIt2 {
 #[tokio::test]
 async fn pipeline_success() {
     let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
-        .add_node(Matcher)
-        .add_node(Downloader)
-        .add_node(Parser { times: 3 })
+        .add_node(StringMatcher("match"))
+        .add_node(StringForwarder)
+        .add_node(RepeatPipeToStringForwarder { times: 3 })
         .finish();
     let res = pipeline.run("match".into()).await;
     assert_eq!(res, Ok(PipelineOutput::Done("match".to_owned())));
@@ -179,7 +179,7 @@ struct StringToIsOk;
 impl Node for StringToIsOk {
     type Input = String;
     type Output = IsOk;
-    type Error = NotDoingItError;
+    type Error = NodeEarlyReturnError;
 
     async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
         Self::advance(IsOk(input)).into()
@@ -193,7 +193,7 @@ struct IsOkToString;
 impl Node for IsOkToString {
     type Input = IsOk;
     type Output = String;
-    type Error = NotDoingItError;
+    type Error = NodeEarlyReturnError;
 
     async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
         Self::advance(input.0).into()
@@ -204,9 +204,9 @@ impl Node for IsOkToString {
 async fn pipeline_io_conversion_success() {
     let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
         .add_node(StringToIsOk)
-        .add_node(Downloader)
+        .add_node(StringForwarder)
         .add_node(IsOkToString)
-        .add_node(Parser { times: 3 })
+        .add_node(RepeatPipeToStringForwarder { times: 3 })
         .finish();
     let res = pipeline.run("match".into()).await;
     assert_eq!(res, Ok(PipelineOutput::Done("match".to_owned())));
@@ -215,9 +215,9 @@ async fn pipeline_io_conversion_success() {
 #[tokio::test]
 async fn soft_fail() {
     let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
-        .add_node(Matcher)
-        .add_node(Downloader)
-        .add_node(Parser { times: 3 })
+        .add_node(StringMatcher("nomatch"))
+        .add_node(StringForwarder)
+        .add_node(RepeatPipeToStringForwarder { times: 3 })
         .finish();
     let res = pipeline.run("".into()).await;
     assert_eq!(res, Ok(PipelineOutput::SoftFail));
@@ -226,35 +226,35 @@ async fn soft_fail() {
 #[tokio::test]
 async fn node_not_found() {
     let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
-        .add_node(Matcher)
-        .add_node(Parser { times: 3 })
+        .add_node(StringMatcher(""))
+        .add_node(RepeatPipeToStringForwarder { times: 3 })
         .finish();
     let res = pipeline.run("match".into()).await;
     assert_eq!(
         res,
-        Err(MyPipelineError::NodeNotFound("generics::Downloader"))
+        Err(MyPipelineError::NodeNotFound("generics::StringForwarder"))
     );
 }
 
 #[tokio::test]
 async fn wrong_output() {
     let pipeline = GenericPipeline::<(), (), MyPipelineError>::new()
-        .add_node(NotDoingIt)
-        .add_node(NotDoingIt2)
+        .add_node(UnitToStringEarlyReturnString)
+        .add_node(StringToUnitEarlyReturnUnit)
         .finish();
     let res = pipeline.run(()).await;
     assert_eq!(
         res,
-        Err(MyPipelineError::WrongPipelineOutput("generics::NotDoingIt"))
+        Err(MyPipelineError::WrongPipelineOutput("generics::UnitToStringEarlyReturnString"))
     )
 }
 
 #[tokio::test]
 async fn orchestrator_success() {
     let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
-        .add_node(Matcher)
-        .add_node(Downloader)
-        .add_node(Parser { times: 3 })
+        .add_node(StringMatcher("match"))
+        .add_node(StringForwarder)
+        .add_node(RepeatPipeToStringForwarder { times: 3 })
         .finish();
     let mut orchestrator: GenericOrchestrator<String, String, MyOrchestratorError> =
         GenericOrchestrator::new();
@@ -280,9 +280,9 @@ impl From<IsOk> for String {
 #[tokio::test]
 async fn orchestrator_io_conversion_success() {
     let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
-        .add_node(Matcher)
-        .add_node(Downloader)
-        .add_node(Parser { times: 3 })
+        .add_node(StringMatcher("match"))
+        .add_node(StringForwarder)
+        .add_node(RepeatPipeToStringForwarder { times: 3 })
         .finish();
     let mut orchestrator: GenericOrchestrator<IsOk, IsOk, MyOrchestratorError> =
         GenericOrchestrator::new();
@@ -294,9 +294,9 @@ async fn orchestrator_io_conversion_success() {
 #[tokio::test]
 async fn orchestrator_no_pipeline() {
     let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
-        .add_node(Matcher)
-        .add_node(Downloader)
-        .add_node(Parser { times: 3 })
+        .add_node(StringMatcher("nomatch"))
+        .add_node(StringForwarder)
+        .add_node(RepeatPipeToStringForwarder { times: 3 })
         .finish();
     let mut orchestrator: GenericOrchestrator<String, String, MyOrchestratorError> =
         GenericOrchestrator::new();
