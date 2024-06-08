@@ -20,17 +20,16 @@ impl<PipelineType: Pipeline> InternalPipelineStruct<PipelineType> {
 }
 
 #[async_trait]
-impl<Input, Output, Error, PipelineType, PipelineInput, PipelineOutput, PipelineError>
-    InternalPipeline<Input, Output, Error> for InternalPipelineStruct<PipelineType>
+impl<Input, Output, Error, PipelineType> InternalPipeline<Input, Output, Error>
+    for InternalPipelineStruct<PipelineType>
 where
     Input: Send + Sync + 'static,
     Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
-    PipelineType:
-        Pipeline<Input = PipelineInput, Output = PipelineOutput, Error = PipelineError> + Debug,
-    Input: Into<PipelineInput>,
-    PipelineOutput: Into<Output>,
-    PipelineError: Into<Error>,
+    PipelineType: Pipeline + Debug,
+    Input: Into<PipelineType::Input>,
+    PipelineType::Output: Into<Output>,
+    PipelineType::Error: Into<Error>,
 {
     async fn run(&self, input: Input) -> Result<Output, Error> {
         self.pipeline

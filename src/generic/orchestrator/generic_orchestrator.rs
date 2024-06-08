@@ -67,15 +67,12 @@ where
 
     /// Adds a pipeline to the [`GenericOrchestrator`] which needs to have same the input and output as the [`GenericOrchestrator`].
     /// It also needs to have an error type that implements `Into<OrchestratorErrorType>`.
-    pub fn add_pipeline<PipelineType, PipelineInput, PipelineOutput_, PipelineError>(
-        &mut self,
-        pipeline: PipelineType,
-    ) where
-        PipelineType: Pipeline<Input = PipelineInput, Output = PipelineOutput_, Error = PipelineError>
-            + Debug,
-        Input: Into<PipelineInput>,
-        PipelineOutput_: Into<InternalPipelineOutput<Output>>,
-        PipelineError: Into<Error>,
+    pub fn add_pipeline<PipelineType>(&mut self, pipeline: PipelineType)
+    where
+        PipelineType: Pipeline + Debug,
+        Input: Into<PipelineType::Input>,
+        PipelineType::Output: Into<InternalPipelineOutput<Output>>,
+        PipelineType::Error: Into<Error>,
     {
         self.pipelines
             .push(Box::new(InternalPipelineStruct::new(pipeline)));

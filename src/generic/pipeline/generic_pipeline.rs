@@ -283,13 +283,13 @@ where
     NodeInput: Debug + Send + Sync + 'static,
 {
     /// Adds node to the [`GenericPipeline`].
-    pub fn add_node<NodeType, NodeOutput, NodeError>(
+    pub fn add_node<NodeType>(
         mut self,
         node: NodeType,
-    ) -> GenericPipelineAddingNodes<Input, Output, Error, NodeOutput>
+    ) -> GenericPipelineAddingNodes<Input, Output, Error, NodeType::Output>
     where
-        NodeType: Node<Error = NodeError, Output = NodeOutput> + Debug,
-        NodeError: Into<Error>,
+        NodeType: Node + Debug,
+        NodeType::Error: Into<Error>,
         NodeInput: Into<NodeType::Input>,
     {
         self.nodes
