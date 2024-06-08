@@ -18,21 +18,15 @@ pub enum OrchestratorError {
 /// Generic implementation of [`Orchestrator`] trait.
 /// That takes some input type and returns some output type or some error type.
 #[derive(Debug)]
-pub struct GenericOrchestrator<Input, Output, Error>
-where
-    Input: Send + Sync + Clone + 'static,
-    Output: Send + Sync + 'static,
-    Error: Send + Sync + 'static,
-    OrchestratorError: Into<Error>,
-{
+pub struct GenericOrchestrator<Input, Output, Error> {
     pipelines: Vec<Box<dyn InternalPipeline<Input, InternalPipelineOutput<Output>, Error>>>,
 }
 
 #[async_trait]
 impl<Input, Output, Error> Orchestrator for GenericOrchestrator<Input, Output, Error>
 where
-    Input: Debug + Send + Sync + Clone + 'static,
-    Output: Debug + Send + Sync + 'static,
+    Input: Send + Sync + Clone + 'static,
+    Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
     OrchestratorError: Into<Error>,
 {
@@ -53,8 +47,8 @@ where
 
 impl<Input, Output, Error> GenericOrchestrator<Input, Output, Error>
 where
-    Input: Debug + Send + Sync + Clone + 'static,
-    Output: Debug + Send + Sync + 'static,
+    Input: Send + Sync + Clone + 'static,
+    Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
     OrchestratorError: Into<Error>,
 {
@@ -82,8 +76,8 @@ where
 
 impl<Input, Output, Error> Default for GenericOrchestrator<Input, Output, Error>
 where
-    Input: Debug + Send + Sync + Clone + 'static,
-    Output: Debug + Send + Sync + 'static,
+    Input: Send + Sync + Clone + 'static,
+    Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
     OrchestratorError: Into<Error>,
 {

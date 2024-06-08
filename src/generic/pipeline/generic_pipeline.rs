@@ -38,12 +38,7 @@ pub struct GenericPipeline<
     Error,
     NextNodeInput = AnyNodeInput,
     State = PipelineStateNew,
-> where
-    Input: Debug + Send + Sync + Clone + 'static,
-    Output: Debug + Send + Sync + 'static,
-    Error: Send + Sync + 'static,
-    PipelineError: Into<Error>,
-{
+> {
     _input: PhantomData<Input>,
     _output: PhantomData<Output>,
     _next_node_input: PhantomData<NextNodeInput>,
@@ -81,8 +76,8 @@ pub type GenericPipelineBuilt<Input, Output, Error> =
 
 impl<Input, Output, Error> GenericPipelineNew<Input, Output, Error>
 where
-    Input: Debug + Send + Sync + Clone + 'static,
-    Output: Debug + Send + Sync + 'static,
+    Input: Send + Sync + Clone + 'static,
+    Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
     PipelineError: Into<Error>,
 {
@@ -101,8 +96,8 @@ where
 
 impl<Input, Output, Error> Default for GenericPipelineNew<Input, Output, Error>
 where
-    Input: Debug + Send + Sync + Clone + 'static,
-    Output: Debug + Send + Sync + 'static,
+    Input: Send + Sync + Clone + 'static,
+    Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
     PipelineError: Into<Error>,
 {
@@ -113,9 +108,7 @@ where
 
 impl<Input, Output, Error> GenericPipelineBuilt<Input, Output, Error>
 where
-    Input: Debug + Send + Sync + Clone + 'static,
-    Output: Debug + Send + Sync + 'static,
-    Error: Send + Sync + 'static,
+    Output: 'static,
     PipelineError: Into<Error>,
 {
     fn get_node_index(&self, ty: TypeId) -> Option<usize> {
@@ -153,8 +146,8 @@ pub enum PipelineOutput<T> {
 #[async_trait]
 impl<Input, Output, Error> Pipeline for GenericPipelineBuilt<Input, Output, Error>
 where
-    Input: Debug + Send + Sync + Clone + 'static,
-    Output: Debug + Send + Sync + 'static,
+    Input: Send + Sync + Clone + 'static,
+    Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
     PipelineError: Into<Error>,
 {
@@ -250,7 +243,7 @@ where
 impl<Input, Output, Error> GenericPipelineNew<Input, Output, Error>
 where
     Input: Debug + Send + Sync + Clone + 'static,
-    Output: Debug + Send + Sync + 'static,
+    Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
     PipelineError: Into<Error>,
 {
@@ -277,8 +270,8 @@ where
 
 impl<Input, Output, Error, NodeInput> GenericPipelineAddingNodes<Input, Output, Error, NodeInput>
 where
-    Input: Debug + Send + Sync + Clone + 'static,
-    Output: Debug + Send + Sync + 'static,
+    Input: Send + Sync + Clone + 'static,
+    Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
     PipelineError: Into<Error>,
     NodeInput: Debug + Send + Sync + 'static,
@@ -307,13 +300,7 @@ where
     }
 }
 
-impl<Input, Output, Error> GenericPipelineAddingNodes<Input, Output, Error, Output>
-where
-    Input: Debug + Send + Sync + Clone + 'static,
-    Output: Debug + Send + Sync + 'static,
-    Error: Send + Sync + 'static,
-    PipelineError: Into<Error>,
-{
+impl<Input, Output, Error> GenericPipelineAddingNodes<Input, Output, Error, Output> {
     /// Finalizes the pipeline so any more nodes can't be added to it.
     #[must_use]
     pub fn finish(self) -> GenericPipelineBuilt<Input, Output, Error> {
