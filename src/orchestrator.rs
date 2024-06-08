@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 /// Defines what methods should be implemented for an orchestrator and what types should be used in [`Pipelines`](crate::pipeline::Pipeline).
-#[async_trait]
+#[cfg_attr(not(docs_cfg), async_trait)]
 pub trait Orchestrator
 where
     Self::Input: Send + Sync + Clone + 'static,

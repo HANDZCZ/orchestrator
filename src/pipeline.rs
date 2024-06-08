@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 /// Defines what methods should be implemented for a pipeline.
 /// It also defines what is the input, output and error should a pipeline have.
-#[async_trait]
+#[cfg_attr(not(docs_cfg), async_trait)]
 pub trait Pipeline: Sync + Send + 'static
 where
     Self::Input: Send + Sync + 'static,

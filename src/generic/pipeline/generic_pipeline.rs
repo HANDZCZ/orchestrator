@@ -143,7 +143,7 @@ pub enum PipelineOutput<T> {
     Done(T),
 }
 
-#[async_trait]
+#[cfg_attr(not(docs_cfg), async_trait)]
 impl<Input, Output, Error> Pipeline for GenericPipelineBuilt<Input, Output, Error>
 where
     Input: Send + Sync + Clone + 'static,

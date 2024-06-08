@@ -3,7 +3,7 @@ use std::any::{self, Any, TypeId};
 use async_trait::async_trait;
 
 /// Trait that has to be implemented for adding a node to a [`GenericPipeline`](crate::generic::pipeline::GenericPipeline).
-#[async_trait]
+#[cfg_attr(not(docs_cfg), async_trait)]
 pub trait Node: Send + Sync + Clone + 'static
 where
     Self::Input: Send + Sync + 'static,
