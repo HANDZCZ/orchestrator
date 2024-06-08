@@ -59,16 +59,13 @@ pub struct NextNode {
 }
 
 /// Defines bunch of helper functions for [`Node`] that return [`NodeOutput`].
-pub trait Returnable<NodeType: Node> {
+pub trait Returnable: Node {
     /// Creates [`NodeOutput`] that pipes the output to [`Node`] with type `NextNodeType`.
     ///
     /// Can be used for:
     /// - saying which [`Node`] should be run next
     /// - jumping to a [`Node`] in a [`Pipeline`](crate::pipeline::Pipeline)
-    fn pipe_to<NextNodeType>(data: NextNodeType::Input) -> NodeOutput<NextNodeType::Input>
-    where
-        NextNodeType: Node<Input = NodeType::Output>,
-    {
+    fn pipe_to<NextNodeType: Node>(data: NextNodeType::Input) -> NodeOutput<Self::Output> {
         NodeOutput::PipeToNode(NextNode {
             output: Box::new(data),
             next_node_type: TypeId::of::<NextNodeType>(),
@@ -77,21 +74,21 @@ pub trait Returnable<NodeType: Node> {
     }
 
     /// Creates [`NodeOutput`] that returns from a [`Pipeline`](crate::pipeline::Pipeline) early.
-    fn return_from_pipeline(output: NodeType::Output) -> NodeOutput<NodeType::Output> {
+    fn return_from_pipeline(output: Self::Output) -> NodeOutput<Self::Output> {
         NodeOutput::ReturnFromPipeline(output)
     }
 
     /// Creates [`NodeOutput`] that advances a [`Pipeline`](crate::pipeline::Pipeline).
-    fn advance(output: NodeType::Output) -> NodeOutput<NodeType::Output> {
+    fn advance(output: Self::Output) -> NodeOutput<Self::Output> {
         NodeOutput::Advance(output)
     }
 
     /// Creates [`NodeOutput`] that soft fails a [`Pipeline`](crate::pipeline::Pipeline).
     ///
     /// For more information look at [`NodeOutput::SoftFail`].
-    fn soft_fail() -> NodeOutput<NodeType::Output> {
+    fn soft_fail() -> NodeOutput<Self::Output> {
         NodeOutput::SoftFail
     }
 }
 
-impl<NodeType: Node> Returnable<NodeType> for NodeType {}
+impl<NodeType: Node> Returnable for NodeType {}
