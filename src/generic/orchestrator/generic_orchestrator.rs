@@ -59,6 +59,7 @@ where
     OrchestratorError: Into<Error>,
 {
     /// Creates a new instance of [`GenericOrchestrator`].
+    #[must_use]
     pub fn new() -> Self {
         Self {
             pipelines: Vec::new(),

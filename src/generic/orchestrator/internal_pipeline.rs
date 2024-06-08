@@ -35,8 +35,8 @@ where
         self.pipeline
             .run(input.into())
             .await
-            .map(|r| r.into())
-            .map_err(|e| e.into())
+            .map(Into::into)
+            .map_err(Into::into)
     }
 }
 

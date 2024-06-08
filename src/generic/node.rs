@@ -22,6 +22,7 @@ where
 
 /// Part of an output that object implementing [`Node`] trait must return
 #[derive(Debug)]
+#[must_use]
 pub enum NodeOutput<T> {
     /// Fails the pipeline without returning error.
     ///

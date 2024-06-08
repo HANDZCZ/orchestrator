@@ -44,14 +44,14 @@ where
         }
     }
 
-    fn get_input(&self, input: Box<dyn Any + Send + Sync>, piped: bool) -> Option<NodeType::Input> {
-        Some(match piped {
-            true => *input.downcast::<NodeType::Input>().ok()?,
-            false => {
-                let input = input.downcast::<PreviousNodeOutputType>().ok()?;
-                (*input).into()
-            }
-        })
+    fn get_input(input: Box<dyn Any + Send + Sync>, piped: bool) -> Option<NodeType::Input> {
+        let res = if piped {
+            *input.downcast::<NodeType::Input>().ok()?
+        } else {
+            let input = input.downcast::<PreviousNodeOutputType>().ok()?;
+            (*input).into()
+        };
+        Some(res)
     }
 }
 
@@ -68,10 +68,10 @@ where
         input: Box<dyn Any + Send + Sync>,
         piped: bool,
     ) -> Result<InternalNodeOutput, Error> {
-        let Some(input) = self.get_input(input, piped) else {
+        let Some(input) = Self::get_input(input, piped) else {
             return Ok(InternalNodeOutput::WrongInputType);
         };
-        let output = self.node.run(input).await.map_err(|e| e.into())?;
+        let output = self.node.run(input).await.map_err(Into::into)?;
         Ok(InternalNodeOutput::NodeOutput(match output {
             NodeOutput::PipeToNode(next_node) => NodeOutput::PipeToNode(next_node),
             NodeOutput::SoftFail => NodeOutput::SoftFail,

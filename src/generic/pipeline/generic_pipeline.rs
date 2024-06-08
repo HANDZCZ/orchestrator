@@ -67,15 +67,15 @@ pub enum PipelineError {
     },
 }
 
-/// Specifies the type for new [GenericPipeline].
+/// Specifies the type for new [`GenericPipeline`].
 pub type GenericPipelineNew<Input, Output, Error> =
     GenericPipeline<Input, Output, Error, AnyNodeInput, PipelineStateNew>;
 
-/// Specifies the type for [GenericPipeline] that is in the process of adding nodes.
+/// Specifies the type for [`GenericPipeline`] that is in the process of adding nodes.
 pub type GenericPipelineAddingNodes<Input, Output, Error, NextNodeInput> =
     GenericPipeline<Input, Output, Error, NextNodeInput, PipelineStateAddingNodes>;
 
-/// Specifies the type for built [GenericPipeline].
+/// Specifies the type for built [`GenericPipeline`].
 pub type GenericPipelineBuilt<Input, Output, Error> =
     GenericPipeline<Input, Output, Error, Output, PipelineStateBuilt>;
 
@@ -87,6 +87,7 @@ where
     PipelineError: Into<Error>,
 {
     /// Creates new instance of [`GenericPipeline`].
+    #[must_use]
     pub fn new() -> Self {
         Self {
             _input: PhantomData,
@@ -314,6 +315,7 @@ where
     PipelineError: Into<Error>,
 {
     /// Finalizes the pipeline so any more nodes can't be added to it.
+    #[must_use]
     pub fn finish(self) -> GenericPipelineBuilt<Input, Output, Error> {
         GenericPipelineBuilt {
             _input: PhantomData,
