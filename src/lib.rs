@@ -25,8 +25,8 @@
 /// [`GenericPipeline`](crate::generic::pipeline::GenericPipeline),
 /// [`GenericOrchestrator`](crate::generic::orchestrator::GenericOrchestrator)).
 pub mod generic;
-/// Module that houses stuff related to [`Orchestrator`](crate::orchestrator::Orchestrator) trait
+/// Module that houses stuff related to [`Orchestrator`](crate::orchestrator::Orchestrator) trait.
 pub mod orchestrator;
-/// Module that houses stuff related to [`Pipeline`](crate::pipeline::Pipeline) type
+/// Module that houses stuff related to [`Pipeline`](crate::pipeline::Pipeline) trait.
 pub mod pipeline;
 pub use async_trait::async_trait;

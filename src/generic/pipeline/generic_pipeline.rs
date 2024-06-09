@@ -31,6 +31,117 @@ pub struct AnyNodeInput;
 
 /// Generic implementation of [`Pipeline`] trait.
 /// That takes some input type and returns some output type or some error type.
+///
+/// Input type to this pipeline can be different from the first node input type as long as pipeline input implements `Into<NodeType::Input>`.
+/// The same is true for last node output and any node error.
+/// Last node output type must implement `Into<Pipeline::Output>` and any node error type must implement `Into<Pipeline::Error>`.
+///
+/// Input to next node can also have different type from previous node output type as long as previous node output type implements `Into<NextNode::Input>`.
+///
+/// Example that shows usage of [`GenericPipeline`] with input and output conversion between nodes and pipeline input and output.
+/// ```
+/// // type to convert from and into
+/// #[derive(Debug, Default, Clone, PartialEq)]
+/// struct WrapString(String);
+/// #
+/// impl From<String> for WrapString //...
+/// # {
+/// #     fn from(value: String) -> Self {
+/// #         WrapString(value)
+/// #     }
+/// # }
+/// #
+/// impl From<WrapString> for String //...
+/// # {
+/// #     fn from(value: WrapString) -> Self {
+/// #         value.0
+/// #     }
+/// # }
+///
+/// // some node implementation
+/// #[derive(Clone, Default, Debug)]
+/// struct ForwardNode<T: Default> {
+///     _type: PhantomData<T>,
+/// }
+/// #
+/// #[async_trait]
+/// impl<T: Send + Sync + Default + Clone + 'static> Node for ForwardNode<T> {
+///     type Input = T;
+///     type Output = T;
+///     type Error = ();
+///
+///     async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+///         // here you want to actually do something like some io bound operation...
+///         Self::advance(input).into()
+///     }
+/// }
+///
+/// #[derive(Debug, PartialEq)]
+/// enum MyPipelineError {
+///     WrongPipelineOutput(&'static str),
+///     NodeNotFound(&'static str),
+///     SomeNodeError,
+/// }
+/// #
+/// // conversion from generic pipeline error into ours
+/// impl From<PipelineError> for MyPipelineError //...
+/// # {
+/// #     fn from(value: PipelineError) -> Self {
+/// #         match value {
+/// #             PipelineError::WrongOutputTypeForPipeline { node_type_name } => {
+/// #                 Self::WrongPipelineOutput(node_type_name)
+/// #             }
+/// #             PipelineError::NodeWithTypeNotFound { node_type_name } => {
+/// #                 Self::NodeNotFound(node_type_name)
+/// #             }
+/// #         }
+/// #     }
+/// # }
+/// #
+/// // conversion from Node errors into ours
+/// impl From<()> for MyPipelineError {
+///     fn from(_value: ()) -> Self {
+///         Self::SomeNodeError
+///     }
+/// }
+///
+/// # use orchestrator::{async_trait, pipeline::Pipeline, generic::{pipeline::{GenericPipeline, PipelineError, PipelineOutput}, node::{Node, Returnable, NodeOutput}}};
+/// # use std::marker::PhantomData;
+/// #[tokio::main]
+/// async fn main() {
+///     // construct generic pipeline that takes and returns a string
+///     // notice the builder pattern - it is needed for type safety
+///     let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+///
+///         // construct and add a node that takes and returns a WrapString
+///         // the pipeline input (String) will be converted into WrapString
+///         // thanks to implementation of WrapString: From<String> above
+///         .add_node(ForwardNode::<WrapString>::default())
+///
+///         // construct and add a node that takes and returns a String
+///         // the node output (WrapString) wil be converted to String
+///         // thanks to implementation of String: From<WrapString> above
+///         .add_node(ForwardNode::<String>::default())
+///
+///         // construct and add a node that takes and returns a WrapString
+///         //   (input to this will be converted to WrapString like the first node)
+///         // the node output (WrapString) wil be converted to pipeline output (String)
+///         // thanks to implementation of String: From<WrapString> above
+///         .add_node(ForwardNode::<WrapString>::default())
+///
+///         // now just finish the pipeline
+///         // here is the actual check for converting
+///         // last nodes output type to pipeline output type (WrapString: Into<String>)
+///         .finish();
+///
+///     // run the pipeline
+///     let res = pipeline.run("match".into()).await;
+///
+///     // pipeline should run successfully
+///     // and return the same thing that was at input
+///     assert_eq!(res, Ok(PipelineOutput::Done("match".to_owned())));
+/// }
+/// ```
 #[derive(Debug)]
 pub struct GenericPipeline<
     Input,

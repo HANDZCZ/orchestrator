@@ -2,6 +2,27 @@ use async_trait::async_trait;
 
 /// Defines what methods should be implemented for a pipeline.
 /// It also defines what is the input, output and error should a pipeline have.
+///
+/// Example how can [`Pipeline`] trait be implemented.
+/// In this example no nodes are used.
+/// ```no_run
+/// use orchestrator::{async_trait, pipeline::Pipeline, generic::pipeline::PipelineOutput};
+///
+/// struct MyPipeline;
+///
+/// #[async_trait]
+/// impl Pipeline for MyPipeline {
+///     type Input = String;
+///     type Output = PipelineOutput<String>;
+///     type Error = ();
+///
+///     async fn run(&self, input: Self::Input) -> Result<Self::Output, Self::Error> {
+///         // some io bound operation
+///         // let input = {...}.await;
+///         Ok(PipelineOutput::Done(input))
+///     }
+/// }
+/// ```
 #[cfg_attr(not(docs_cfg), async_trait)]
 pub trait Pipeline: Sync + Send + 'static
 where
