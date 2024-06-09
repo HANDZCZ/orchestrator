@@ -75,9 +75,7 @@ where
         Ok(InternalNodeOutput::NodeOutput(match output {
             NodeOutput::PipeToNode(next_node) => NodeOutput::PipeToNode(next_node),
             NodeOutput::SoftFail => NodeOutput::SoftFail,
-            NodeOutput::ReturnFromPipeline(output) => {
-                NodeOutput::ReturnFromPipeline(Box::new(output))
-            }
+            NodeOutput::ReturnFromPipeline(output) => NodeOutput::ReturnFromPipeline(output),
             NodeOutput::Advance(output) => NodeOutput::Advance(Box::new(output)),
         }))
     }

@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{any, fmt::Debug};
 
 use orchestrator::{
     async_trait,
@@ -33,7 +33,11 @@ impl From<MyPipelineError> for MyOrchestratorError {
 
 #[derive(Debug, PartialEq)]
 enum MyPipelineError {
-    WrongPipelineOutput(&'static str),
+    WrongPipelineOutput {
+        node_type_name: &'static str,
+        expected_type_name: &'static str,
+        got_type_name: &'static str,
+    },
     NodeNotFound(&'static str),
     SomeNodeError,
 }
@@ -41,9 +45,16 @@ enum MyPipelineError {
 impl From<PipelineError> for MyPipelineError {
     fn from(value: PipelineError) -> Self {
         match value {
-            PipelineError::WrongOutputTypeForPipeline { node_type_name } => {
-                Self::WrongPipelineOutput(node_type_name)
-            }
+            PipelineError::WrongOutputTypeForPipeline {
+                node_type_name,
+                expected_type_name,
+                got_type_name,
+                ..
+            } => Self::WrongPipelineOutput {
+                expected_type_name,
+                got_type_name,
+                node_type_name,
+            },
             PipelineError::NodeWithTypeNotFound { node_type_name } => {
                 Self::NodeNotFound(node_type_name)
             }
@@ -232,7 +243,9 @@ async fn node_not_found() {
     let res = pipeline.run("match".into()).await;
     assert_eq!(
         res,
-        Err(MyPipelineError::NodeNotFound("generics::StringForwarder"))
+        Err(MyPipelineError::NodeNotFound(any::type_name::<
+            StringForwarder,
+        >()))
     );
 }
 
@@ -245,7 +258,11 @@ async fn wrong_output() {
     let res = pipeline.run(()).await;
     assert_eq!(
         res,
-        Err(MyPipelineError::WrongPipelineOutput("generics::UnitToStringEarlyReturnString"))
+        Err(MyPipelineError::WrongPipelineOutput {
+            expected_type_name: any::type_name::<()>(),
+            got_type_name: any::type_name::<String>(),
+            node_type_name: any::type_name::<UnitToStringEarlyReturnString>()
+        })
     )
 }
 

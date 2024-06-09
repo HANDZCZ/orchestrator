@@ -1,5 +1,5 @@
 use std::{
-    any::{Any, TypeId},
+    any::{self, Any, TypeId},
     fmt::Debug,
     marker::PhantomData,
 };
@@ -7,7 +7,7 @@ use std::{
 use async_trait::async_trait;
 
 use crate::{
-    generic::node::{NextNode, Node, NodeOutput},
+    generic::node::{AnyDebug, NextNode, Node, NodeOutput},
     pipeline::Pipeline,
 };
 
@@ -76,9 +76,14 @@ pub struct AnyNodeInput;
 ///     }
 /// }
 ///
-/// #[derive(Debug, PartialEq)]
+/// #[derive(Debug)]
 /// enum MyPipelineError {
-///     WrongPipelineOutput(&'static str),
+///     WrongPipelineOutput {
+///         node_type_name: &'static str,
+///         data: Box<dyn AnyDebug>,
+///         expected_type_name: &'static str,
+///         got_type_name: &'static str,
+///     },
 ///     NodeNotFound(&'static str),
 ///     SomeNodeError,
 /// }
@@ -88,9 +93,17 @@ pub struct AnyNodeInput;
 /// # {
 /// #     fn from(value: PipelineError) -> Self {
 /// #         match value {
-/// #             PipelineError::WrongOutputTypeForPipeline { node_type_name } => {
-/// #                 Self::WrongPipelineOutput(node_type_name)
-/// #             }
+/// #             PipelineError::WrongOutputTypeForPipeline {
+/// #                 data,
+/// #                 node_type_name,
+/// #                 expected_type_name,
+/// #                 got_type_name,
+/// #             } => Self::WrongPipelineOutput {
+/// #                 data,
+/// #                 expected_type_name,
+/// #                 got_type_name,
+/// #                 node_type_name,
+/// #             },
 /// #             PipelineError::NodeWithTypeNotFound { node_type_name } => {
 /// #                 Self::NodeNotFound(node_type_name)
 /// #             }
@@ -105,7 +118,7 @@ pub struct AnyNodeInput;
 ///     }
 /// }
 ///
-/// # use orchestrator::{async_trait, pipeline::Pipeline, generic::{pipeline::{GenericPipeline, PipelineError, PipelineOutput}, node::{Node, Returnable, NodeOutput}}};
+/// # use orchestrator::{async_trait, pipeline::Pipeline, generic::{pipeline::{GenericPipeline, PipelineError, PipelineOutput}, node::{AnyDebug, Node, Returnable, NodeOutput}}};
 /// # use std::marker::PhantomData;
 /// #[tokio::main]
 /// async fn main() {
@@ -139,7 +152,8 @@ pub struct AnyNodeInput;
 ///
 ///     // pipeline should run successfully
 ///     // and return the same thing that was at input
-///     assert_eq!(res, Ok(PipelineOutput::Done("match".to_owned())));
+///     let expected: Result<_, MyPipelineError> = Ok(PipelineOutput::Done("match".to_owned()));
+///     assert!(matches!(res, expected));
 /// }
 /// ```
 #[derive(Debug)]
@@ -164,6 +178,16 @@ pub enum PipelineError {
     WrongOutputTypeForPipeline {
         /// Name of the node which returned the wrong type.
         node_type_name: &'static str,
+        /// Data that couldn't be downcasted to pipeline output type.
+        ///
+        /// You can format them with debug flag!
+        data: Box<dyn AnyDebug>,
+        /// Name of the type that was expected.
+        ///
+        /// It's the name of the type you set as the pipeline output.
+        expected_type_name: &'static str,
+        /// Name of the type that was actually delivered.
+        got_type_name: &'static str,
     },
     /// [`Node`] with specified type could not be found in pipeline.
     /// Most likely you just forgot to add it to the pipeline.
@@ -231,15 +255,22 @@ where
     }
 
     fn get_pipeline_output(
-        data: Box<dyn Any + Send + Sync>,
+        data: Box<dyn AnyDebug>,
         node: &dyn InternalNode<Error>,
     ) -> Result<PipelineOutput<Output>, Error> {
-        match data.downcast::<Output>() {
-            Ok(output) => Ok(PipelineOutput::Done(*output)),
-            Err(_) => Err(PipelineError::WrongOutputTypeForPipeline {
+        if (*data).type_id() == TypeId::of::<Output>() {
+            Ok(PipelineOutput::Done(
+                *data.into_box_any().downcast::<Output>().unwrap(),
+            ))
+        } else {
+            let (type_name, data) = data.with_type_name();
+            Err(PipelineError::WrongOutputTypeForPipeline {
                 node_type_name: node.get_node_type_name(),
+                got_type_name: type_name,
+                data,
+                expected_type_name: any::type_name::<Output>(),
             }
-            .into()),
+            .into())
         }
     }
 }

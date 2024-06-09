@@ -1,4 +1,7 @@
-use std::any::{self, Any, TypeId};
+use std::{
+    any::{self, Any, TypeId},
+    fmt::Debug,
+};
 
 use async_trait::async_trait;
 
@@ -61,7 +64,7 @@ pub enum NodeOutput<T> {
     /// In this example Matcher can soft fail.
     SoftFail,
     /// Returns from [`Pipeline`](crate::pipeline::Pipeline) early.
-    ReturnFromPipeline(T),
+    ReturnFromPipeline(Box<dyn AnyDebug>),
     /// Advances [`Pipeline`](crate::pipeline::Pipeline) to the next [`Node`].
     Advance(T),
     /// Pipes the output from the current [`Node`] to a [`Node`] with defined type.
@@ -82,6 +85,27 @@ pub struct NextNode {
     pub(crate) output: Box<dyn Any + Send + Sync>,
     pub(crate) next_node_type: TypeId,
     pub(crate) next_node_type_name: &'static str,
+}
+
+/// Trait for adding debug to `Box<dyn Any>`. It also adds a method to get the type name of `Self` that's inside the `Box`.
+pub trait AnyDebug: Any + Send + Sync + Debug {
+    /// Converts `Box<Self>` to `Box<dyn Any + Send + Sync>`
+    fn into_box_any(self: Box<Self>) -> Box<dyn Any + Send + Sync>;
+    /// Returns the type name of `Self` thats inside the `Box` and `Box<dyn AnyDebug>`.
+    fn with_type_name(self: Box<Self>) -> (&'static str, Box<dyn AnyDebug>);
+}
+
+impl<T> AnyDebug for T
+where
+    T: Any + Debug + Send + Sync,
+{
+    fn into_box_any(self: Box<Self>) -> Box<dyn Any + Send + Sync> {
+        self
+    }
+
+    fn with_type_name(self: Box<Self>) -> (&'static str, Box<dyn AnyDebug>) {
+        (any::type_name::<Self>(), self)
+    }
 }
 
 /// Defines bunch of helper functions for [`Node`] that return [`NodeOutput`].
@@ -156,8 +180,11 @@ pub trait Returnable: Node {
     /// }
     /// # }
     /// ```
-    fn return_from_pipeline(output: Self::Output) -> NodeOutput<Self::Output> {
-        NodeOutput::ReturnFromPipeline(output)
+    fn return_from_pipeline<Output>(output: Output) -> NodeOutput<Self::Output>
+    where
+        Output: Any + Sync + Send + Debug,
+    {
+        NodeOutput::ReturnFromPipeline(Box::new(output))
     }
 
     /// Creates [`NodeOutput`] that advances a [`Pipeline`](crate::pipeline::Pipeline).
