@@ -71,8 +71,8 @@ pub type GenericPipelineAddingNodes<Input, Output, Error, NextNodeInput> =
     GenericPipeline<Input, Output, Error, NextNodeInput, PipelineStateAddingNodes>;
 
 /// Specifies the type for built [`GenericPipeline`].
-pub type GenericPipelineBuilt<Input, Output, Error> =
-    GenericPipeline<Input, Output, Error, Output, PipelineStateBuilt>;
+pub type GenericPipelineBuilt<Input, Output, Error, LastNodeOutput> =
+    GenericPipeline<Input, Output, Error, LastNodeOutput, PipelineStateBuilt>;
 
 impl<Input, Output, Error> GenericPipelineNew<Input, Output, Error>
 where
@@ -106,7 +106,8 @@ where
     }
 }
 
-impl<Input, Output, Error> GenericPipelineBuilt<Input, Output, Error>
+impl<Input, Output, Error, LastNodeOutput>
+    GenericPipelineBuilt<Input, Output, Error, LastNodeOutput>
 where
     Output: 'static,
     PipelineError: Into<Error>,
@@ -144,12 +145,14 @@ pub enum PipelineOutput<T> {
 }
 
 #[cfg_attr(not(docs_cfg), async_trait)]
-impl<Input, Output, Error> Pipeline for GenericPipelineBuilt<Input, Output, Error>
+impl<Input, Output, Error, LastNodeOutput> Pipeline
+    for GenericPipelineBuilt<Input, Output, Error, LastNodeOutput>
 where
     Input: Send + Sync + Clone + 'static,
     Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
     PipelineError: Into<Error>,
+    LastNodeOutput: Send + Sync + 'static + Into<Output>,
 {
     type Input = Input;
     type Output = PipelineOutput<Output>;
@@ -159,7 +162,6 @@ where
         let mut data: Box<dyn Any + Sync + Send> = Box::new(input);
         let mut piped = false;
         let mut index = 0;
-        let mut prev_index = 0;
         let mut first = self.nodes[0].duplicate();
         match first.run(data, piped).await? {
             InternalNodeOutput::NodeOutput(NodeOutput::SoftFail) => {
@@ -200,8 +202,12 @@ where
 
         loop {
             if index >= nodes.len() {
-                let prev_node = &nodes[prev_index];
-                return Self::get_pipeline_output(data, &**prev_node);
+                // When index is larger than nodes.len() last node in nodes should have been the last node that have ran.
+                // In other words data should contain LastNodeOutput type.
+                let last_node_output = *data
+                    .downcast::<LastNodeOutput>()
+                    .expect("Downcast to LastNodeOutput failed, but it shouldn't.");
+                return Ok(PipelineOutput::Done(last_node_output.into()));
             }
             let node = &mut nodes[index];
             match node.run(data, piped).await? {
@@ -218,7 +224,6 @@ where
                 })) => {
                     data = output;
                     piped = true;
-                    prev_index = index;
                     index = self.get_node_index(next_node_type).ok_or(
                         PipelineError::NodeWithTypeNotFound {
                             node_type_name: next_node_type_name,
@@ -229,7 +234,6 @@ where
                 InternalNodeOutput::NodeOutput(NodeOutput::Advance(output)) => {
                     data = output;
                     piped = false;
-                    prev_index = index;
                     index += 1;
                 }
                 InternalNodeOutput::WrongInputType => {
@@ -248,13 +252,14 @@ where
     PipelineError: Into<Error>,
 {
     /// Adds node to the [`GenericPipeline`].
-    pub fn add_node<NodeType, NodeOutput, NodeError>(
+    pub fn add_node<NodeType>(
         mut self,
         node: NodeType,
-    ) -> GenericPipelineAddingNodes<Input, Output, Error, NodeOutput>
+    ) -> GenericPipelineAddingNodes<Input, Output, Error, NodeType::Output>
     where
-        NodeType: Node<Error = NodeError, Input = Input, Output = NodeOutput> + Debug,
-        NodeError: Into<Error>,
+        NodeType: Node + Debug,
+        Input: Into<NodeType::Input>,
+        NodeType::Error: Into<Error>,
     {
         self.nodes
             .push(Box::new(InternalNodeStruct::<NodeType, Input>::new(node)));
@@ -300,10 +305,14 @@ where
     }
 }
 
-impl<Input, Output, Error> GenericPipelineAddingNodes<Input, Output, Error, Output> {
+impl<Input, Output, Error, LastNodeOutput>
+    GenericPipelineAddingNodes<Input, Output, Error, LastNodeOutput>
+where
+    LastNodeOutput: Into<Output>,
+{
     /// Finalizes the pipeline so any more nodes can't be added to it.
     #[must_use]
-    pub fn finish(self) -> GenericPipelineBuilt<Input, Output, Error> {
+    pub fn finish(self) -> GenericPipelineBuilt<Input, Output, Error, LastNodeOutput> {
         GenericPipelineBuilt {
             _input: PhantomData,
             _output: PhantomData,

@@ -164,7 +164,7 @@ async fn generic_orchestrator_io_conversion_success() {
         IsOk,
         IsOk,
         MyOrchestratorError<()>,
-    >::default();
+    >::new();
     orchestrator.add_pipeline(SoftFailPipeline::<String>::default());
     orchestrator.add_pipeline(SoftFailPipeline::<String>::default());
     orchestrator.add_pipeline(SoftFailPipeline::<String>::default());
