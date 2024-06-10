@@ -4,16 +4,10 @@ use async_trait::async_trait;
 
 use crate::{orchestrator::Orchestrator, pipeline::Pipeline};
 
-use super::internal_pipeline::{InternalPipeline, InternalPipelineOutput, InternalPipelineStruct};
-
-/// Defines which errors can occur in [`GenericOrchestrator`].
-#[derive(Debug)]
-pub enum OrchestratorError {
-    /// All the pipelines added to orchestrator soft failed.
-    ///
-    /// For more information about soft fail look at [`NodeOutput::SoftFail`](crate::generic::node::NodeOutput::SoftFail).
-    AllPipelinesSoftFailed,
-}
+use super::{
+    internal_pipeline::{InternalPipeline, InternalPipelineOutput, InternalPipelineStruct},
+    OrchestratorError,
+};
 
 /// Generic implementation of [`Orchestrator`] trait.
 /// That takes some input type and returns some output type or some error type.

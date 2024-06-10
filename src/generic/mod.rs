@@ -4,3 +4,6 @@ pub mod node;
 pub mod orchestrator;
 /// Module that houses stuff related to [`GenericPipeline`](pipeline::GenericPipeline) trait.
 pub mod pipeline;
+
+mod any_debug;
+pub use any_debug::*;

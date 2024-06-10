@@ -7,11 +7,17 @@ use std::{
 use async_trait::async_trait;
 
 use crate::{
-    generic::node::{AnyDebug, NextNode, Node, NodeOutput},
+    generic::{
+        node::{NextNode, Node, NodeOutput},
+        AnyDebug,
+    },
     pipeline::Pipeline,
 };
 
-use super::internal_node::{InternalNode, InternalNodeOutput, InternalNodeStruct};
+use super::{
+    internal_node::{InternalNode, InternalNodeOutput, InternalNodeStruct},
+    PipelineError, PipelineOutput,
+};
 
 /// Marker type that is used to say that [`GenericPipeline`] was just created and does not have any nodes in it.
 #[derive(Debug)]
@@ -118,7 +124,7 @@ pub struct AnyNodeInput;
 ///     }
 /// }
 ///
-/// # use orchestrator::{async_trait, pipeline::Pipeline, generic::{pipeline::{GenericPipeline, PipelineError, PipelineOutput}, node::{AnyDebug, Node, Returnable, NodeOutput}}};
+/// # use orchestrator::{async_trait, pipeline::Pipeline, generic::{AnyDebug, pipeline::{GenericPipeline, PipelineError, PipelineOutput}, node::{Node, Returnable, NodeOutput}}};
 /// # use std::marker::PhantomData;
 /// #[tokio::main]
 /// async fn main() {
@@ -169,32 +175,6 @@ pub struct GenericPipeline<
     _next_node_input: PhantomData<NextNodeInput>,
     _pipeline_state: PhantomData<State>,
     nodes: Vec<Box<dyn InternalNode<Error>>>,
-}
-
-/// Defines which errors can occur in [`GenericPipeline`].
-#[derive(Debug)]
-pub enum PipelineError {
-    /// Output that is supposed to be returned from pipeline has wrong type.
-    WrongOutputTypeForPipeline {
-        /// Name of the node which returned the wrong type.
-        node_type_name: &'static str,
-        /// Data that couldn't be downcasted to pipeline output type.
-        ///
-        /// You can format them with debug flag!
-        data: Box<dyn AnyDebug>,
-        /// Name of the type that was expected.
-        ///
-        /// It's the name of the type you set as the pipeline output.
-        expected_type_name: &'static str,
-        /// Name of the type that was actually delivered.
-        got_type_name: &'static str,
-    },
-    /// [`Node`] with specified type could not be found in pipeline.
-    /// Most likely you just forgot to add it to the pipeline.
-    NodeWithTypeNotFound {
-        /// Name of the node which could not be found.
-        node_type_name: &'static str,
-    },
 }
 
 /// Specifies the type for new [`GenericPipeline`].
@@ -273,17 +253,6 @@ where
             .into())
         }
     }
-}
-
-/// Defines what [`GenericPipeline`] returns.
-#[derive(Debug, PartialEq)]
-pub enum PipelineOutput<T> {
-    /// Says that the pipeline soft failed.
-    ///
-    /// For more information look at [`NodeOutput::SoftFail`].
-    SoftFail,
-    /// Pipeline finished successfully.
-    Done(T),
 }
 
 #[cfg_attr(not(docs_cfg), async_trait)]
