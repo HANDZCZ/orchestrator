@@ -1,5 +1,7 @@
 # Orchestrator
 
+[![DOCS](https://img.shields.io/badge/docs-orchestrator?style=for-the-badge&logo=docs.rs&labelColor=%23567&color=%233A3)](https://handzcz.github.io/orchestrator/)
+
 A crate that provides pipelines and an orchestrator.
 
 It provides traits `Pipeline` and `Orchestrator`.
