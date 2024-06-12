@@ -1,4 +1,4 @@
-/// Defines what [`GenericPipeline`](crate::generic::pipeline::GenericPipeline) returns.
+/// Defines what pipelines return.
 #[derive(Debug, PartialEq)]
 pub enum PipelineOutput<T> {
     /// Says that the pipeline soft failed.
