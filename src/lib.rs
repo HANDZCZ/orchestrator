@@ -20,6 +20,8 @@
 //! [`GenericOrchestrator`](crate::generic::orchestrator::GenericOrchestrator))
 //! of these traits.
 //! To use the generic types you need to implement the [`Node`](crate::generic::node::Node) trait and mostly follow the compilers nagging.
+//! You can also use [`FnPipeline`](crate::generic::pipeline::FnPipeline) and [`FnNode`](crate::generic::node::FnNode) that implement traits
+//! [`Pipeline`](crate::pipeline::Pipeline) or [`Node`](crate::generic::node::Node) and wrap around async functions.
 //!
 //! # Example
 //!
@@ -207,7 +209,9 @@
 
 /// Module that houses stuff related to generics ([`Node`](crate::generic::node::Node),
 /// [`GenericPipeline`](crate::generic::pipeline::GenericPipeline),
-/// [`GenericOrchestrator`](crate::generic::orchestrator::GenericOrchestrator)).
+/// [`GenericOrchestrator`](crate::generic::orchestrator::GenericOrchestrator)
+/// [`FnPipeline`](crate::generic::pipeline::FnPipeline),
+/// [`FnNode`](crate::generic::node::FnNode)).
 pub mod generic;
 /// Module that houses stuff related to [`Orchestrator`](crate::orchestrator::Orchestrator) trait.
 pub mod orchestrator;

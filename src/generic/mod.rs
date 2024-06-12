@@ -1,8 +1,8 @@
-/// Module that houses stuff related to [`Node`](node::Node) trait.
+/// Module that houses stuff related to nodes.
 pub mod node;
-/// Module that houses stuff related to [`GenericOrchestrator`](orchestrator::GenericOrchestrator) trait.
+/// Module that houses stuff related to orchestrator.
 pub mod orchestrator;
-/// Module that houses stuff related to [`GenericPipeline`](pipeline::GenericPipeline) trait.
+/// Module that houses stuff related to pipelines.
 pub mod pipeline;
 
 mod any_debug;
