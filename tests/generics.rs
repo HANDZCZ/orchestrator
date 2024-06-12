@@ -1,11 +1,11 @@
-use std::{any, fmt::Debug};
+use std::any;
 
 use orchestrator::{
     async_trait,
     generic::{
-        node::{Node, NodeOutput, Returnable},
+        node::{AnyNode, FnNode, Node, NodeOutput, Returnable},
         orchestrator::{GenericOrchestrator, OrchestratorError},
-        pipeline::{GenericPipeline, PipelineError, PipelineOutput},
+        pipeline::{FnPipeline, GenericPipeline, PipelineError, PipelineOutput},
     },
     orchestrator::Orchestrator,
     pipeline::Pipeline,
@@ -320,4 +320,63 @@ async fn orchestrator_no_pipeline() {
     orchestrator.add_pipeline(pipeline);
     let res = orchestrator.run("".into()).await;
     assert_eq!(res, Err(MyOrchestratorError::AllPipelinesSoftFailed));
+}
+
+impl From<()> for MyPipelineError {
+    fn from(_value: ()) -> Self {
+        MyPipelineError::SomeNodeError
+    }
+}
+
+#[tokio::test]
+async fn fn_node_test() {
+    async fn normal_async_fn(input: IsOk) -> Result<NodeOutput<IsOk>, ()> {
+        AnyNode::advance(input).into()
+    }
+
+    let closure_with_async = |input: String| async {
+        if !input.is_empty() {
+            AnyNode::advance(input).into()
+        } else {
+            Err(())
+        }
+    };
+
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+        .add_node(FnNode::new(closure_with_async))
+        .add_node(FnNode::new(normal_async_fn))
+        .finish();
+
+    let input = "Not empty".to_string();
+    let res = pipeline.run(input.clone()).await;
+    assert_eq!(res, Ok(PipelineOutput::Done(input)));
+}
+
+impl From<()> for MyOrchestratorError {
+    fn from(_value: ()) -> Self {
+        MyOrchestratorError::PipelineError(MyPipelineError::SomeNodeError)
+    }
+}
+
+#[tokio::test]
+async fn fn_pipeline_test() {
+    async fn normal_async_fn(input: IsOk) -> Result<PipelineOutput<IsOk>, ()> {
+        Ok(PipelineOutput::Done(input))
+    }
+
+    let closure_with_async = |input: String| async {
+        if !input.is_empty() {
+            Ok(PipelineOutput::Done(input))
+        } else {
+            Err(())
+        }
+    };
+
+    let mut orchestrator = GenericOrchestrator::<String, String, MyOrchestratorError>::new();
+    orchestrator.add_pipeline(FnPipeline::new(closure_with_async));
+    orchestrator.add_pipeline(FnPipeline::new(normal_async_fn));
+
+    let input = "Not empty".to_string();
+    let res = orchestrator.run(input.clone()).await;
+    assert_eq!(res, Ok(input));
 }
