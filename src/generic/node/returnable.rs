@@ -1,12 +1,13 @@
 use std::{
     any::{self, Any, TypeId},
     fmt::Debug,
+    marker::PhantomData,
 };
 
 use super::{NextNode, Node, NodeOutput};
 
 /// Defines bunch of helper functions for [`Node`] that return [`NodeOutput`].
-pub trait Returnable: Node {
+pub trait Returnable<NodeOutputType> {
     /// Creates [`NodeOutput`] that pipes data to [`Node`] with the `NextNodeType` type.
     ///
     /// Can be used for:
@@ -47,7 +48,7 @@ pub trait Returnable: Node {
     /// }
     /// # }
     /// ```
-    fn pipe_to<NextNodeType: Node>(data: NextNodeType::Input) -> NodeOutput<Self::Output> {
+    fn pipe_to<NextNodeType: Node>(data: NextNodeType::Input) -> NodeOutput<NodeOutputType> {
         NodeOutput::PipeToNode(NextNode {
             output: Box::new(data),
             next_node_type: TypeId::of::<NextNodeType>(),
@@ -77,7 +78,7 @@ pub trait Returnable: Node {
     /// }
     /// # }
     /// ```
-    fn return_from_pipeline<Output>(output: Output) -> NodeOutput<Self::Output>
+    fn return_from_pipeline<Output>(output: Output) -> NodeOutput<NodeOutputType>
     where
         Output: Any + Sync + Send + Debug,
     {
@@ -106,7 +107,7 @@ pub trait Returnable: Node {
     /// }
     /// # }
     /// ```
-    fn advance(output: Self::Output) -> NodeOutput<Self::Output> {
+    fn advance(output: NodeOutputType) -> NodeOutput<NodeOutputType> {
         NodeOutput::Advance(output)
     }
 
@@ -134,9 +135,20 @@ pub trait Returnable: Node {
     /// ```
     ///
     /// For more information look at [`NodeOutput::SoftFail`].
-    fn soft_fail() -> NodeOutput<Self::Output> {
+    fn soft_fail() -> NodeOutput<NodeOutputType> {
         NodeOutput::SoftFail
     }
 }
 
-impl<NodeType: Node> Returnable for NodeType {}
+impl<NodeType: Node> Returnable<NodeType::Output> for NodeType {}
+
+/// It is mainly used in [`FnNode`](crate::generic::node::FnNode) to return [`NodeOutput`],
+/// since functions don't have Self.
+///
+/// For usage info look at example in [`FnNode`](crate::generic::node::FnNode).
+#[derive(Debug)]
+pub struct AnyNode<T> {
+    _output_type: PhantomData<T>,
+}
+
+impl<T> Returnable<T> for AnyNode<T> {}
