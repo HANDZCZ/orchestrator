@@ -92,12 +92,22 @@ use super::{Node, NodeOutput};
 ///     assert!(matches!(res, expected));
 /// }
 /// ```
-#[derive(Clone)]
 pub struct FnNode<Input, Output, Error, FnType> {
     _input_type: PhantomData<Input>,
     _output_type: PhantomData<Output>,
     _error_type: PhantomData<Error>,
     f: FnType,
+}
+
+impl<Input, Output, Error, FnType: Clone> Clone for FnNode<Input, Output, Error, FnType> {
+    fn clone(&self) -> Self {
+        Self {
+            _input_type: PhantomData,
+            _output_type: PhantomData,
+            _error_type: PhantomData,
+            f: self.f.clone(),
+        }
+    }
 }
 
 impl<Input, Output, Error, FnType> Debug for FnNode<Input, Output, Error, FnType> {
@@ -114,9 +124,9 @@ impl<Input, Output, Error, FnType, FutureOutput> FnNode<Input, Output, Error, Fn
 where
     FnType: Fn(Input) -> FutureOutput + Clone + Send + Sync + 'static,
     FutureOutput: Future<Output = Result<NodeOutput<Output>, Error>> + Send + Sync,
-    Input: Send + Sync + Clone + 'static,
-    Output: Send + Sync + Clone + 'static,
-    Error: Send + Sync + Clone + 'static,
+    Input: Send + Sync + 'static,
+    Output: Send + Sync + 'static,
+    Error: Send + Sync + 'static,
 {
     /// Creates new instance of [`FnNode`] from async function.
     #[must_use]
@@ -135,9 +145,9 @@ impl<Input, Output, Error, FnType, FutureOutput> Node for FnNode<Input, Output, 
 where
     FnType: Fn(Input) -> FutureOutput + Clone + Send + Sync + 'static,
     FutureOutput: Future<Output = Result<NodeOutput<Output>, Error>> + Send + Sync,
-    Input: Send + Sync + Clone + 'static,
-    Output: Send + Sync + Clone + 'static,
-    Error: Send + Sync + Clone + 'static,
+    Input: Send + Sync + 'static,
+    Output: Send + Sync + 'static,
+    Error: Send + Sync + 'static,
 {
     type Input = Input;
     type Output = Output;
@@ -154,9 +164,9 @@ impl<Input, Output, Error, FnType, FutureOutput> From<FnType>
 where
     FnType: Fn(Input) -> FutureOutput + Clone + Send + Sync + 'static,
     FutureOutput: Future<Output = Result<NodeOutput<Output>, Error>> + Send + Sync,
-    Input: Send + Sync + Clone + 'static,
-    Output: Send + Sync + Clone + 'static,
-    Error: Send + Sync + Clone + 'static,
+    Input: Send + Sync + 'static,
+    Output: Send + Sync + 'static,
+    Error: Send + Sync + 'static,
 {
     fn from(value: FnType) -> Self {
         Self::new(value)
