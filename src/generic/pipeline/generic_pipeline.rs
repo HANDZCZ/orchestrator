@@ -162,7 +162,6 @@ pub struct AnyNodeInput;
 ///     assert!(matches!(res, expected));
 /// }
 /// ```
-#[derive(Debug)]
 pub struct GenericPipeline<
     Input,
     Output,
@@ -174,7 +173,18 @@ pub struct GenericPipeline<
     _output: PhantomData<Output>,
     _next_node_input: PhantomData<NextNodeInput>,
     _pipeline_state: PhantomData<State>,
+    last_node_output_converter: Option<Box<dyn ConvertTo<Output>>>,
     nodes: Vec<Box<dyn InternalNode<Error>>>,
+}
+
+impl<Input, Output, Error, NextNodeInput, State> Debug
+    for GenericPipeline<Input, Output, Error, NextNodeInput, State>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GenericPipeline")
+            .field("nodes", &self.nodes)
+            .finish_non_exhaustive()
+    }
 }
 
 /// Specifies the type for new [`GenericPipeline`].
@@ -186,8 +196,8 @@ pub type GenericPipelineAddingNodes<Input, Output, Error, NextNodeInput> =
     GenericPipeline<Input, Output, Error, NextNodeInput, PipelineStateAddingNodes>;
 
 /// Specifies the type for built [`GenericPipeline`].
-pub type GenericPipelineBuilt<Input, Output, Error, LastNodeOutput> =
-    GenericPipeline<Input, Output, Error, LastNodeOutput, PipelineStateBuilt>;
+pub type GenericPipelineBuilt<Input, Output, Error> =
+    GenericPipeline<Input, Output, Error, (), PipelineStateBuilt>;
 
 impl<Input, Output, Error> GenericPipelineNew<Input, Output, Error>
 where
@@ -204,6 +214,7 @@ where
             _output: PhantomData,
             _next_node_input: PhantomData,
             _pipeline_state: PhantomData,
+            last_node_output_converter: None,
             nodes: Vec::new(),
         }
     }
@@ -221,8 +232,7 @@ where
     }
 }
 
-impl<Input, Output, Error, LastNodeOutput>
-    GenericPipelineBuilt<Input, Output, Error, LastNodeOutput>
+impl<Input, Output, Error> GenericPipelineBuilt<Input, Output, Error>
 where
     Output: 'static,
     PipelineError: Into<Error>,
@@ -256,14 +266,12 @@ where
 }
 
 #[cfg_attr(not(docs_cfg), async_trait)]
-impl<Input, Output, Error, LastNodeOutput> Pipeline
-    for GenericPipelineBuilt<Input, Output, Error, LastNodeOutput>
+impl<Input, Output, Error> Pipeline for GenericPipelineBuilt<Input, Output, Error>
 where
     Input: Send + Sync + Clone + 'static,
     Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
     PipelineError: Into<Error>,
-    LastNodeOutput: Send + Sync + 'static + Into<Output>,
 {
     type Input = Input;
     type Output = PipelineOutput<Output>;
@@ -315,11 +323,14 @@ where
         loop {
             if index >= nodes.len() {
                 // When index is larger than nodes.len() last node in nodes should have been the last node that have ran.
-                // In other words data should contain LastNodeOutput type.
-                let last_node_output = *data
-                    .downcast::<LastNodeOutput>()
-                    .expect("Downcast to LastNodeOutput failed, but it shouldn't.");
-                return Ok(PipelineOutput::Done(last_node_output.into()));
+                // In other words data should contain last node output type.
+                let output = self
+                    .last_node_output_converter
+                    .as_ref()
+                    .expect("Last node output converted should always exist in built pipeline")
+                    .convert(data)
+                    .expect("Converting data to pipeline output failed");
+                return Ok(PipelineOutput::Done(output));
             }
             let node = &mut nodes[index];
             match node.run(data, piped, &mut pipeline_storage).await? {
@@ -380,6 +391,7 @@ where
             _output: PhantomData,
             _next_node_input: PhantomData,
             _pipeline_state: PhantomData,
+            last_node_output_converter: None,
             nodes: self.nodes,
         }
     }
@@ -412,6 +424,7 @@ where
             _output: PhantomData,
             _next_node_input: PhantomData,
             _pipeline_state: PhantomData,
+            last_node_output_converter: None,
             nodes: self.nodes,
         }
     }
@@ -420,17 +433,58 @@ where
 impl<Input, Output, Error, LastNodeOutput>
     GenericPipelineAddingNodes<Input, Output, Error, LastNodeOutput>
 where
-    LastNodeOutput: Into<Output>,
+    Output: Send + Sync + 'static,
+    LastNodeOutput: Into<Output> + Send + Sync + 'static,
 {
     /// Finalizes the pipeline so any more nodes can't be added to it.
     #[must_use]
-    pub fn finish(self) -> GenericPipelineBuilt<Input, Output, Error, LastNodeOutput> {
+    pub fn finish(self) -> GenericPipelineBuilt<Input, Output, Error> {
         GenericPipelineBuilt {
             _input: PhantomData,
             _output: PhantomData,
             _next_node_input: PhantomData,
             _pipeline_state: PhantomData,
+            last_node_output_converter: Some(Box::new(
+                DowncastConverter::<LastNodeOutput, Output>::new(),
+            )),
             nodes: self.nodes,
         }
+    }
+}
+
+trait ConvertTo<T>: Send + Sync {
+    fn convert(&self, data: Box<dyn Any + Send + Sync>) -> Option<T>;
+}
+
+struct DowncastConverter<Input, Output>
+where
+    Input: Into<Output>,
+{
+    _node_output_type: PhantomData<Input>,
+    _pipeline_output_type: PhantomData<Output>,
+}
+
+impl<Input, Output> DowncastConverter<Input, Output>
+where
+    Input: Into<Output>,
+{
+    fn new() -> Self {
+        Self {
+            _node_output_type: PhantomData,
+            _pipeline_output_type: PhantomData,
+        }
+    }
+}
+
+impl<FromType, IntoType> ConvertTo<IntoType> for DowncastConverter<FromType, IntoType>
+where
+    FromType: Into<IntoType> + 'static + Send + Sync,
+    IntoType: Send + Sync,
+{
+    fn convert(&self, data: Box<dyn Any + Send + Sync>) -> Option<IntoType> {
+        let box_from = data.downcast::<FromType>().ok()?;
+        let from = *box_from;
+        let into = from.into();
+        Some(into)
     }
 }
