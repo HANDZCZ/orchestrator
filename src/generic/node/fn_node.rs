@@ -2,6 +2,8 @@ use std::{fmt::Debug, future::Future, marker::PhantomData};
 
 use async_trait::async_trait;
 
+use crate::generic::pipeline::PipelineStorage;
+
 use super::{Node, NodeOutput};
 
 /// Implementation of [`Node`] trait.
@@ -122,7 +124,7 @@ impl<Input, Output, Error, FnType> Debug for FnNode<Input, Output, Error, FnType
 
 impl<Input, Output, Error, FnType, FutureOutput> FnNode<Input, Output, Error, FnType>
 where
-    FnType: Fn(Input) -> FutureOutput + Clone + Send + Sync + 'static,
+    FnType: Fn(Input, &mut PipelineStorage) -> FutureOutput + Clone + Send + Sync + 'static,
     FutureOutput: Future<Output = Result<NodeOutput<Output>, Error>> + Send + Sync,
     Input: Send + Sync + 'static,
     Output: Send + Sync + 'static,
@@ -143,7 +145,7 @@ where
 #[cfg_attr(not(docs_cfg), async_trait)]
 impl<Input, Output, Error, FnType, FutureOutput> Node for FnNode<Input, Output, Error, FnType>
 where
-    FnType: Fn(Input) -> FutureOutput + Clone + Send + Sync + 'static,
+    FnType: Fn(Input, &mut PipelineStorage) -> FutureOutput + Clone + Send + Sync + 'static,
     FutureOutput: Future<Output = Result<NodeOutput<Output>, Error>> + Send + Sync,
     Input: Send + Sync + 'static,
     Output: Send + Sync + 'static,
@@ -153,8 +155,12 @@ where
     type Output = Output;
     type Error = Error;
 
-    async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
-        let fut = (self.f)(input);
+    async fn run(
+        &mut self,
+        input: Self::Input,
+        pipeline_storage: &mut PipelineStorage,
+    ) -> Result<NodeOutput<Self::Output>, Self::Error> {
+        let fut = (self.f)(input, pipeline_storage);
         fut.await
     }
 }
@@ -162,7 +168,7 @@ where
 impl<Input, Output, Error, FnType, FutureOutput> From<FnType>
     for FnNode<Input, Output, Error, FnType>
 where
-    FnType: Fn(Input) -> FutureOutput + Clone + Send + Sync + 'static,
+    FnType: Fn(Input, &mut PipelineStorage) -> FutureOutput + Clone + Send + Sync + 'static,
     FutureOutput: Future<Output = Result<NodeOutput<Output>, Error>> + Send + Sync,
     Input: Send + Sync + 'static,
     Output: Send + Sync + 'static,

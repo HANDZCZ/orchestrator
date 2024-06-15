@@ -16,7 +16,7 @@ use crate::{
 
 use super::{
     internal_node::{InternalNode, InternalNodeOutput, InternalNodeStruct},
-    PipelineError, PipelineOutput,
+    PipelineError, PipelineOutput, PipelineStorage,
 };
 
 /// Marker type that is used to say that [`GenericPipeline`] was just created and does not have any nodes in it.
@@ -271,10 +271,11 @@ where
 
     async fn run(&self, input: Self::Input) -> Result<Self::Output, Self::Error> {
         let mut data: Box<dyn Any + Sync + Send> = Box::new(input);
+        let mut pipeline_storage = PipelineStorage::new();
         let mut piped = false;
         let mut index = 0;
         let mut first = self.nodes[0].duplicate();
-        match first.run(data, piped).await? {
+        match first.run(data, piped, &mut pipeline_storage).await? {
             InternalNodeOutput::NodeOutput(NodeOutput::SoftFail) => {
                 return Ok(PipelineOutput::SoftFail)
             }
@@ -321,7 +322,7 @@ where
                 return Ok(PipelineOutput::Done(last_node_output.into()));
             }
             let node = &mut nodes[index];
-            match node.run(data, piped).await? {
+            match node.run(data, piped, &mut pipeline_storage).await? {
                 InternalNodeOutput::NodeOutput(NodeOutput::SoftFail) => {
                     return Ok(PipelineOutput::SoftFail)
                 }

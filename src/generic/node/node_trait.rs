@@ -1,5 +1,7 @@
 use async_trait::async_trait;
 
+use crate::generic::pipeline::PipelineStorage;
+
 use super::NodeOutput;
 
 /// Trait that has to be implemented for adding a node to [`GenericPipeline`](crate::generic::pipeline::GenericPipeline).
@@ -41,5 +43,9 @@ where
     type Error;
 
     /// Defines what the node is supposed to be doing.
-    async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error>;
+    async fn run(
+        &mut self,
+        input: Self::Input,
+        pipeline_storage: &mut PipelineStorage,
+    ) -> Result<NodeOutput<Self::Output>, Self::Error>;
 }

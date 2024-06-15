@@ -8,6 +8,8 @@ use async_trait::async_trait;
 
 use crate::generic::node::{Node, NodeOutput};
 
+use super::PipelineStorage;
+
 #[derive(Debug)]
 pub enum InternalNodeOutput {
     NodeOutput(NodeOutput<Box<dyn Any + Send + Sync>>),
@@ -20,6 +22,7 @@ pub trait InternalNode<Error>: Debug + Send + Sync {
         &mut self,
         input: Box<dyn Any + Send + Sync>,
         piped: bool,
+        pipeline_storage: &mut PipelineStorage,
     ) -> Result<InternalNodeOutput, Error>;
     fn duplicate(&self) -> Box<dyn InternalNode<Error>>;
     fn get_node_type(&self) -> TypeId;
@@ -67,11 +70,16 @@ where
         &mut self,
         input: Box<dyn Any + Send + Sync>,
         piped: bool,
+        pipeline_storage: &mut PipelineStorage,
     ) -> Result<InternalNodeOutput, Error> {
         let Some(input) = Self::get_input(input, piped) else {
             return Ok(InternalNodeOutput::WrongInputType);
         };
-        let output = self.node.run(input).await.map_err(Into::into)?;
+        let output = self
+            .node
+            .run(input, pipeline_storage)
+            .await
+            .map_err(Into::into)?;
         Ok(InternalNodeOutput::NodeOutput(match output {
             NodeOutput::PipeToNode(next_node) => NodeOutput::PipeToNode(next_node),
             NodeOutput::SoftFail => NodeOutput::SoftFail,
