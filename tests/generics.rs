@@ -1,11 +1,11 @@
-use std::any;
+use std::{any, future::Future};
 
 use orchestrator::{
     async_trait,
     generic::{
         node::{AnyNode, FnNode, Node, NodeOutput, Returnable},
         orchestrator::{GenericOrchestrator, OrchestratorError},
-        pipeline::{FnPipeline, GenericPipeline, PipelineError, PipelineOutput},
+        pipeline::{FnPipeline, GenericPipeline, PipelineError, PipelineOutput, PipelineStorage},
     },
     orchestrator::Orchestrator,
     pipeline::Pipeline,
@@ -97,7 +97,11 @@ impl Node for StringMatcher {
     type Output = String;
     type Error = StringMatcherError;
 
-    async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+    async fn run(
+        &mut self,
+        input: Self::Input,
+        _pipeline_storage: &mut PipelineStorage,
+    ) -> Result<NodeOutput<Self::Output>, Self::Error> {
         if !input.contains(self.0) {
             return Self::soft_fail().into();
         }
@@ -116,7 +120,11 @@ impl Node for StringForwarder {
     type Output = String;
     type Error = StringForwarderError;
 
-    async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+    async fn run(
+        &mut self,
+        input: Self::Input,
+        _pipeline_storage: &mut PipelineStorage,
+    ) -> Result<NodeOutput<Self::Output>, Self::Error> {
         Self::advance(input).into()
     }
 }
@@ -134,7 +142,11 @@ impl Node for RepeatPipeToStringForwarder {
     type Output = String;
     type Error = RepeatPipeToStringForwarderError;
 
-    async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+    async fn run(
+        &mut self,
+        input: Self::Input,
+        _pipeline_storage: &mut PipelineStorage,
+    ) -> Result<NodeOutput<Self::Output>, Self::Error> {
         if self.times == 0 {
             return Self::return_from_pipeline(input).into();
         }
@@ -154,7 +166,11 @@ impl Node for UnitToStringEarlyReturnString {
     type Output = String;
     type Error = NodeEarlyReturnError;
 
-    async fn run(&mut self, _input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+    async fn run(
+        &mut self,
+        _input: Self::Input,
+        _pipeline_storage: &mut PipelineStorage,
+    ) -> Result<NodeOutput<Self::Output>, Self::Error> {
         Self::return_from_pipeline("".to_string()).into()
     }
 }
@@ -167,7 +183,11 @@ impl Node for StringToUnitEarlyReturnUnit {
     type Output = ();
     type Error = NodeEarlyReturnError;
 
-    async fn run(&mut self, _input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+    async fn run(
+        &mut self,
+        _input: Self::Input,
+        _pipeline_storage: &mut PipelineStorage,
+    ) -> Result<NodeOutput<Self::Output>, Self::Error> {
         Self::return_from_pipeline(()).into()
     }
 }
@@ -192,7 +212,11 @@ impl Node for StringToIsOk {
     type Output = IsOk;
     type Error = NodeEarlyReturnError;
 
-    async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+    async fn run(
+        &mut self,
+        input: Self::Input,
+        _pipeline_storage: &mut PipelineStorage,
+    ) -> Result<NodeOutput<Self::Output>, Self::Error> {
         Self::advance(IsOk(input)).into()
     }
 }
@@ -206,7 +230,11 @@ impl Node for IsOkToString {
     type Output = String;
     type Error = NodeEarlyReturnError;
 
-    async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+    async fn run(
+        &mut self,
+        input: Self::Input,
+        _pipeline_storage: &mut PipelineStorage,
+    ) -> Result<NodeOutput<Self::Output>, Self::Error> {
         Self::advance(input.0).into()
     }
 }
@@ -330,11 +358,20 @@ impl From<()> for MyPipelineError {
 
 #[tokio::test]
 async fn fn_node_test() {
-    async fn normal_async_fn(input: IsOk) -> Result<NodeOutput<IsOk>, ()> {
-        AnyNode::advance(input).into()
+    fn normal_async_fn<'a>(
+        input: IsOk,
+        _pipeline_storage: &mut PipelineStorage,
+    ) -> impl Future<Output = Result<NodeOutput<IsOk>, ()>> + 'a {
+        async { AnyNode::advance(input).into() }
     }
+    /*async fn normal_async_fn(
+        input: IsOk,
+        _pipeline_storage: &mut PipelineStorage,
+    ) -> Result<NodeOutput<IsOk>, ()> {
+        AnyNode::advance(input).into()
+    }*/
 
-    let closure_with_async = |input: String| async {
+    let closure_with_async = |input: String, _pipeline_storage: &mut PipelineStorage| async {
         if !input.is_empty() {
             AnyNode::advance(input).into()
         } else {

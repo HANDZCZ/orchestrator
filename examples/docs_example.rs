@@ -7,7 +7,7 @@ use orchestrator::{
     generic::{
         node::{Node, NodeOutput, Returnable},
         orchestrator::{GenericOrchestrator, OrchestratorError},
-        pipeline::{GenericPipeline, PipelineError, PipelineOutput},
+        pipeline::{GenericPipeline, PipelineError, PipelineOutput, PipelineStorage},
         AnyDebug,
     },
     orchestrator::Orchestrator,
@@ -43,7 +43,11 @@ impl<T: Send + Sync + Default + Clone + 'static> Node for ForwardNode<T> {
     type Output = T;
     type Error = ();
 
-    async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+    async fn run(
+        &mut self,
+        input: Self::Input,
+        _pipeline_storage: &mut PipelineStorage,
+    ) -> Result<NodeOutput<Self::Output>, Self::Error> {
         // here you want to actually do something like some io bound operation...
         Self::advance(input).into()
     }
