@@ -17,7 +17,16 @@ use super::FnOutput;
 /// ```
 /// use orchestrator::{
 ///     generic::{
-///         node::{FnNode, AnyNode, NodeOutput, Returnable},
+///         node::{
+///             fn_node::{
+///                 FnNode,
+///                 FnOutput,
+///                 FnNodeFutureExt,
+///             },
+///             AnyNode,
+///             NodeOutput,
+///             Returnable,
+///         },
 ///         pipeline::{
 ///             GenericPipeline,
 ///             PipelineError,
@@ -72,23 +81,25 @@ use super::FnOutput;
 ///     }
 /// }
 ///
-/// // async fn needs this signature because of PipelineStorage
-/// fn normal_async_fn<'a>(
+/// // async fn needs to look like this because of PipelineStorage
+/// fn normal_async_fn(
 ///     input: String,
-///     _pipeline_storage: &mut PipelineStorage,
-/// ) -> impl Future<Output = Result<NodeOutput<String>, ()>> + 'a {
+///     pipeline_storage: &mut PipelineStorage,
+/// ) -> FnOutput<String, ()> {
 ///     async {
 ///         // use AnyNode to construct NodeOutput
 ///         AnyNode::advance(input).into()
-///     }
+///     }.into_fn_output()
 /// }
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     let closure_with_async = |input: String, _pipeline_storage: &mut PipelineStorage| async {
+///     // create node from closure
+///     // <_, _, (), _> is needed to tell the compiler what type Error has
+///     let closure_with_async = FnNode::<_, _, (), _>::new(|input: String, pipeline_storage: &mut PipelineStorage| async {
 ///         // use AnyNode to construct NodeOutput
 ///         AnyNode::advance(input).into()
-///     };
+///     }.into_fn_output());
 ///
 ///     // construct generic pipeline that takes and returns a string
 ///     let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
@@ -96,9 +107,8 @@ use super::FnOutput;
 ///         // create and add node from function
 ///         .add_node(FnNode::new(normal_async_fn))
 ///
-///         // create and add node from closure
-///         // <_, _, (), _> is needed to tell the compiler what type Error has
-///         .add_node(FnNode::<_, _, (), _>::new(closure_with_async))
+///         // add node from closure
+///         .add_node(closure_with_async)
 ///
 ///         // now just finish the pipeline
 ///         .finish();

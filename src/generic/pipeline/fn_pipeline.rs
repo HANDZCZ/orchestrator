@@ -8,6 +8,7 @@ use super::PipelineOutput;
 
 /// Implementation of [`Pipeline`] trait.
 /// That takes some async function and wraps around it to crate a pipeline.
+///
 /// This function takes some input type and returns a future with output type `Result<PipelineOutput<some output type>, some error type>`.
 ///
 /// Example that shows usage of [`FnPipeline`].

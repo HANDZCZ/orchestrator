@@ -20,7 +20,7 @@ use super::NodeOutput;
 ///    type Output = usize;
 ///    type Error = StringIsEmpty;
 ///
-///    async fn run(&mut self, input: Self::Input, _pipeline_storage: &mut PipelineStorage) -> Result<NodeOutput<Self::Output>, Self::Error> {
+///    async fn run(&mut self, input: Self::Input, pipeline_storage: &mut PipelineStorage) -> Result<NodeOutput<Self::Output>, Self::Error> {
 ///        // here should be some io bound operation...
 ///        if input.is_empty() {
 ///            return Err(StringIsEmpty);

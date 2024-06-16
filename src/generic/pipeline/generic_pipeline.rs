@@ -76,7 +76,7 @@ pub struct AnyNodeInput;
 ///     type Output = T;
 ///     type Error = ();
 ///
-///     async fn run(&mut self, input: Self::Input, _pipeline_storage: &mut PipelineStorage) -> Result<NodeOutput<Self::Output>, Self::Error> {
+///     async fn run(&mut self, input: Self::Input, pipeline_storage: &mut PipelineStorage) -> Result<NodeOutput<Self::Output>, Self::Error> {
 ///         // here you want to actually do something like some io bound operation...
 ///         Self::advance(input).into()
 ///     }
