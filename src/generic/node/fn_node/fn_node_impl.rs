@@ -11,7 +11,12 @@ use super::FnOutput;
 
 /// Implementation of [`Node`] trait.
 /// That takes some async function and wraps around it to crate a node.
-/// This function takes some input type and returns a future with output type `Result<NodeOutput<some output type>, some error type>`.
+///
+/// This function takes some input type, mutable reference to [`PipelineStorage`] and returns `Pin<Box<Future>>`,
+/// where future must have output type `Result<NodeOutput<some output type>, some error type>`.
+/// To convert from [`Future`](std::future::Future) with the required output type to `Pin<Box<Future>>`
+/// you can use [`FnNodeFutureExt`](crate::generic::node::fn_node::FnNodeFutureExt) extension trait, that returns [`FnOutput`],
+/// which is a type alias for `Pin<Box<Future<Output = Result<NodeOutput<Output>, Error>>>>`.
 ///
 /// Example that shows usage of [`FnNode`].
 /// ```
