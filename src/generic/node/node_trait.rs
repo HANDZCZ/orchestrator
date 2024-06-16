@@ -8,7 +8,7 @@ use super::NodeOutput;
 ///
 /// Example how can [`Node`] trait be implemented.
 /// ```no_run
-/// use orchestrator::{async_trait, generic::node::{Node, NodeOutput, Returnable}};
+/// use orchestrator::{async_trait, generic::{pipeline::PipelineStorage, node::{Node, NodeOutput, Returnable}}};
 ///
 /// #[derive(Clone)]
 /// struct StringLen;
@@ -20,7 +20,7 @@ use super::NodeOutput;
 ///    type Output = usize;
 ///    type Error = StringIsEmpty;
 ///
-///    async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+///    async fn run(&mut self, input: Self::Input, _pipeline_storage: &mut PipelineStorage) -> Result<NodeOutput<Self::Output>, Self::Error> {
 ///        // here should be some io bound operation...
 ///        if input.is_empty() {
 ///            return Err(StringIsEmpty);

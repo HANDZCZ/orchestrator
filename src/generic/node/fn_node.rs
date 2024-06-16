@@ -15,11 +15,17 @@ use super::{Node, NodeOutput};
 /// use orchestrator::{
 ///     generic::{
 ///         node::{FnNode, AnyNode, NodeOutput, Returnable},
-///         pipeline::{GenericPipeline, PipelineError, PipelineOutput},
+///         pipeline::{
+///             GenericPipeline,
+///             PipelineError,
+///             PipelineOutput,
+///             PipelineStorage,
+///         },
 ///         AnyDebug,
 ///     },
 ///     pipeline::Pipeline,
 /// };
+/// use std::future::Future;
 ///
 /// #[derive(Debug)]
 /// enum MyPipelineError {
@@ -63,14 +69,20 @@ use super::{Node, NodeOutput};
 ///     }
 /// }
 ///
-/// async fn normal_async_fn(input: String) -> Result<NodeOutput<String>, ()> {
-///     // use AnyNode to construct NodeOutput
-///     AnyNode::advance(input).into()
+/// // async fn needs this signature because of PipelineStorage
+/// fn normal_async_fn<'a>(
+///     input: String,
+///     _pipeline_storage: &mut PipelineStorage,
+/// ) -> impl Future<Output = Result<NodeOutput<String>, ()>> + 'a {
+///     async {
+///         // use AnyNode to construct NodeOutput
+///         AnyNode::advance(input).into()
+///     }
 /// }
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     let closure_with_async = |input: String| async {
+///     let closure_with_async = |input: String, _pipeline_storage: &mut PipelineStorage| async {
 ///         // use AnyNode to construct NodeOutput
 ///         AnyNode::advance(input).into()
 ///     };

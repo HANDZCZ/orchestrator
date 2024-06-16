@@ -76,7 +76,7 @@ pub struct AnyNodeInput;
 ///     type Output = T;
 ///     type Error = ();
 ///
-///     async fn run(&mut self, input: Self::Input) -> Result<NodeOutput<Self::Output>, Self::Error> {
+///     async fn run(&mut self, input: Self::Input, _pipeline_storage: &mut PipelineStorage) -> Result<NodeOutput<Self::Output>, Self::Error> {
 ///         // here you want to actually do something like some io bound operation...
 ///         Self::advance(input).into()
 ///     }
@@ -124,7 +124,7 @@ pub struct AnyNodeInput;
 ///     }
 /// }
 ///
-/// # use orchestrator::{async_trait, pipeline::Pipeline, generic::{AnyDebug, pipeline::{GenericPipeline, PipelineError, PipelineOutput}, node::{Node, Returnable, NodeOutput}}};
+/// # use orchestrator::{async_trait, pipeline::Pipeline, generic::{AnyDebug, pipeline::{GenericPipeline, PipelineError, PipelineOutput, PipelineStorage}, node::{Node, Returnable, NodeOutput}}};
 /// # use std::marker::PhantomData;
 /// #[tokio::main]
 /// async fn main() {
