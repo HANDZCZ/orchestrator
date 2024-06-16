@@ -142,10 +142,10 @@ pub trait Returnable<NodeOutputType> {
 
 impl<NodeType: Node> Returnable<NodeType::Output> for NodeType {}
 
-/// It is mainly used in [`FnNode`](crate::generic::node::FnNode) to return [`NodeOutput`],
+/// It is mainly used in [`FnNode`](crate::generic::node::fn_node::FnNode) to return [`NodeOutput`],
 /// since functions don't have Self.
 ///
-/// For usage info look at example in [`FnNode`](crate::generic::node::FnNode).
+/// For usage info look at example in [`FnNode`](crate::generic::node::fn_node::FnNode).
 pub struct AnyNode<T> {
     _output_type: PhantomData<T>,
 }
