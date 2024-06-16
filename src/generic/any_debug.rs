@@ -24,6 +24,9 @@ where
     }
 }
 
+/// Trait for converting `&dyn Trait` to `&dyn Any`.
+///
+/// For some usage look at implementation of [`PipelineStorage`](crate::generic::pipeline::PipelineStorage).
 pub trait ToRefAny {
     /// Converts `&Self` to `&(dyn Any + Send + Sync)`.
     ///

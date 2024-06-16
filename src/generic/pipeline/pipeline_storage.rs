@@ -2,17 +2,20 @@ use std::{any::TypeId, collections::HashMap, fmt::Debug};
 
 use crate::generic::AnyDebug;
 
+/// Pipeline wide storage that is used in [`Node`](crate::generic::node::Node).
 #[derive(Debug, Default)]
 pub struct PipelineStorage {
     inner: HashMap<TypeId, Box<dyn AnyDebug>>,
 }
 
 impl PipelineStorage {
+    /// Constructs new `PipelineStorage`.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Gets reference of a value with type T from storage if it is present.
     // should never panic
     #[allow(clippy::missing_panics_doc)]
     #[must_use]
@@ -26,6 +29,7 @@ impl PipelineStorage {
         })
     }
 
+    /// Gets mutable reference of a value with type T from storage if it is present.
     // should never panic
     #[allow(clippy::missing_panics_doc)]
     #[must_use]
@@ -39,6 +43,7 @@ impl PipelineStorage {
         })
     }
 
+    /// Inserts value with type T to storage and returns the value that was there previously if it was there.
     // should never panic
     #[allow(clippy::missing_panics_doc)]
     pub fn insert<T>(&mut self, val: T) -> Option<T>
@@ -50,6 +55,7 @@ impl PipelineStorage {
             .map(|val| *val.into_box_any().downcast::<T>().unwrap())
     }
 
+    /// Removes and returns value with type T from storage if it is present.
     // should never panic
     #[allow(clippy::missing_panics_doc)]
     pub fn remove<T>(&mut self) -> Option<T>
