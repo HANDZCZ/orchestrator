@@ -1,9 +1,12 @@
-use std::{any, future::Future};
+use std::any;
 
 use orchestrator::{
     async_trait,
     generic::{
-        node::{AnyNode, FnNode, Node, NodeOutput, Returnable},
+        node::{
+            fn_node::{FnNode, FnNodeFutureExt, FnOutput},
+            AnyNode, Node, NodeOutput, Returnable,
+        },
         orchestrator::{GenericOrchestrator, OrchestratorError},
         pipeline::{FnPipeline, GenericPipeline, PipelineError, PipelineOutput, PipelineStorage},
     },
@@ -358,30 +361,36 @@ impl From<()> for MyPipelineError {
 
 #[tokio::test]
 async fn fn_node_test() {
-    fn normal_async_fn<'a>(
-        input: IsOk,
-        _pipeline_storage: &mut PipelineStorage,
-    ) -> impl Future<Output = Result<NodeOutput<IsOk>, ()>> + 'a {
-        async { AnyNode::advance(input).into() }
+    fn normal_async_fn(input: IsOk, _pipeline_storage: &mut PipelineStorage) -> FnOutput<IsOk, ()> {
+        async { AnyNode::advance(input).into() }.into_fn_output()
     }
-    /*async fn normal_async_fn(
+    let normal_async_fn = FnNode::new(normal_async_fn);
+
+    async fn normal_async_fn_with_sugar(
         input: IsOk,
         _pipeline_storage: &mut PipelineStorage,
     ) -> Result<NodeOutput<IsOk>, ()> {
         AnyNode::advance(input).into()
-    }*/
+    }
+    let normal_async_fn_with_sugar =
+        FnNode::new(|a, b| async move { normal_async_fn_with_sugar(a, b).await }.into_fn_output());
 
-    let closure_with_async = |input: String, _pipeline_storage: &mut PipelineStorage| async {
-        if !input.is_empty() {
-            AnyNode::advance(input).into()
-        } else {
-            Err(())
-        }
-    };
+    let closure_with_async =
+        FnNode::new(|input: String, _pipeline_storage: &mut PipelineStorage| {
+            async move {
+                if !input.is_empty() {
+                    AnyNode::advance(input).into()
+                } else {
+                    Err(())
+                }
+            }
+            .into_fn_output()
+        });
 
     let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
-        .add_node(FnNode::new(closure_with_async))
-        .add_node(FnNode::new(normal_async_fn))
+        .add_node(normal_async_fn_with_sugar)
+        .add_node(closure_with_async)
+        .add_node(normal_async_fn)
         .finish();
 
     let input = "Not empty".to_string();
@@ -416,4 +425,71 @@ async fn fn_pipeline_test() {
     let input = "Not empty".to_string();
     let res = orchestrator.run(input.clone()).await;
     assert_eq!(res, Ok(input));
+}
+
+#[tokio::test]
+async fn pipeline_storage_test() {
+    #[derive(Debug)]
+    struct MyVal(usize);
+
+    #[derive(Clone, Debug)]
+    struct PipelineStorageTest;
+
+    #[async_trait]
+    impl Node for PipelineStorageTest {
+        type Input = ();
+        type Output = ();
+        type Error = ();
+
+        async fn run(
+            &mut self,
+            input: Self::Input,
+            pipeline_storage: &mut PipelineStorage,
+        ) -> Result<NodeOutput<Self::Output>, Self::Error> {
+            let my_val = pipeline_storage.get_mut::<MyVal>();
+            let my_val = my_val.unwrap();
+            *my_val = MyVal(my_val.0 + 1);
+            Self::advance(input).into()
+        }
+    }
+
+    let first_node =
+        FnNode::<(), (), (), _>::new(|input: (), pipeline_storage: &mut PipelineStorage| {
+            async move {
+                pipeline_storage.insert(MyVal(0));
+                AnyNode::advance(input).into()
+            }
+            .into_fn_output()
+        });
+
+    async fn middle_node(
+        input: (),
+        pipeline_storage: &mut PipelineStorage,
+    ) -> Result<NodeOutput<()>, ()> {
+        let my_val = pipeline_storage.get_mut::<MyVal>();
+        let my_val = my_val.unwrap();
+        *my_val = MyVal(my_val.0 + 1);
+        AnyNode::advance(input).into()
+    }
+    let middle_node = FnNode::new(|a, b| async move { middle_node(a, b).await }.into_fn_output());
+
+    fn last_node(_input: (), pipeline_storage: &mut PipelineStorage) -> FnOutput<usize, ()> {
+        async move {
+            let my_val = pipeline_storage.remove::<MyVal>();
+            let my_val = my_val.unwrap();
+            AnyNode::advance(my_val.0).into()
+        }
+        .into_fn_output()
+    }
+    let last_node = FnNode::new(last_node);
+
+    let pipeline = GenericPipeline::<(), usize, MyPipelineError>::new()
+        .add_node(first_node)
+        .add_node(middle_node)
+        .add_node(PipelineStorageTest)
+        .add_node(last_node)
+        .finish();
+
+    let res = pipeline.run(()).await;
+    assert_eq!(res, Ok(PipelineOutput::Done(2)));
 }
