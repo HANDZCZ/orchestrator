@@ -52,11 +52,7 @@ pub struct FnPipeline<Input, Output, Error, FnType> {
 
 impl<Input, Output, Error, FnType> Debug for FnPipeline<Input, Output, Error, FnType> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("FnPipeline")
-            .field("_input_type", &self._input_type)
-            .field("_output_type", &self._output_type)
-            .field("_error_type", &self._error_type)
-            .finish_non_exhaustive()
+        f.debug_struct("FnPipeline").finish_non_exhaustive()
     }
 }
 

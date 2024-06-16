@@ -114,11 +114,7 @@ impl<Input, Output, Error, FnType: Clone> Clone for FnNode<Input, Output, Error,
 
 impl<Input, Output, Error, FnType> Debug for FnNode<Input, Output, Error, FnType> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("FnNode")
-            .field("_input_type", &self._input_type)
-            .field("_output_type", &self._output_type)
-            .field("_error_type", &self._error_type)
-            .finish_non_exhaustive()
+        f.debug_struct("FnNode").finish_non_exhaustive()
     }
 }
 

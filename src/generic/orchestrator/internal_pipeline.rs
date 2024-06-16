@@ -9,10 +9,16 @@ pub trait InternalPipeline<Input, Output, Error>: Debug + Send + Sync {
     async fn run(&self, input: Input) -> Result<Output, Error>;
 }
 
-#[derive(Debug)]
 pub struct InternalPipelineStruct<PipelineType: Pipeline> {
     pipeline: PipelineType,
 }
+
+impl<T: Pipeline + Debug> Debug for InternalPipelineStruct<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.pipeline.fmt(f)
+    }
+}
+
 impl<PipelineType: Pipeline> InternalPipelineStruct<PipelineType> {
     pub fn new(pipeline: PipelineType) -> Self {
         Self { pipeline }

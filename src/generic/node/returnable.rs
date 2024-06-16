@@ -146,9 +146,14 @@ impl<NodeType: Node> Returnable<NodeType::Output> for NodeType {}
 /// since functions don't have Self.
 ///
 /// For usage info look at example in [`FnNode`](crate::generic::node::FnNode).
-#[derive(Debug)]
 pub struct AnyNode<T> {
     _output_type: PhantomData<T>,
+}
+
+impl<T> Debug for AnyNode<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AnyNode").finish()
+    }
 }
 
 impl<T> Returnable<T> for AnyNode<T> {}

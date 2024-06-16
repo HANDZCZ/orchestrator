@@ -29,10 +29,15 @@ pub trait InternalNode<Error>: Debug + Send + Sync {
     fn get_node_type_name(&self) -> &'static str;
 }
 
-#[derive(Debug)]
 pub struct InternalNodeStruct<NodeType: Node, PreviousNodeOutputType> {
     _previous_node_output_type: PhantomData<PreviousNodeOutputType>,
     node: NodeType,
+}
+
+impl<T: Node + Debug, U> Debug for InternalNodeStruct<T, U> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.node.fmt(f)
+    }
 }
 
 impl<NodeType, PreviousNodeOutputType> InternalNodeStruct<NodeType, PreviousNodeOutputType>
@@ -64,7 +69,7 @@ impl<NodeType, Error, PreviousNodeOutputType> InternalNode<Error>
 where
     NodeType: Node + Debug,
     NodeType::Error: Into<Error>,
-    PreviousNodeOutputType: Send + Sync + Debug + 'static + Into<NodeType::Input>,
+    PreviousNodeOutputType: Send + Sync + 'static + Into<NodeType::Input>,
 {
     async fn run(
         &mut self,
