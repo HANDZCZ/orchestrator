@@ -240,8 +240,7 @@ where
     fn get_node_index(&self, ty: TypeId) -> Option<usize> {
         self.nodes
             .iter()
-            .enumerate()
-            .find_map(|(i, node)| (node.get_node_type() == ty).then_some(i))
+            .position(|node| node.get_node_type() == ty)
     }
 
     fn get_pipeline_output(
