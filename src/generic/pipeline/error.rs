@@ -1,3 +1,5 @@
+use std::{error::Error, fmt::Display};
+
 use crate::generic::AnyDebug;
 
 /// Defines which errors can occur in [`GenericPipeline`](crate::generic::pipeline::GenericPipeline).
@@ -25,3 +27,22 @@ pub enum PipelineError {
         node_type_name: &'static str,
     },
 }
+
+impl Display for PipelineError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let txt = match self {
+            PipelineError::WrongOutputTypeForPipeline {
+                node_type_name,
+                data: _,
+                expected_type_name,
+                got_type_name,
+            } => format!("node with type '{node_type_name}' returned wrong output type for pipeline, expected: '{expected_type_name}', got: '{got_type_name}'"),
+            PipelineError::NodeWithTypeNotFound { node_type_name } => {
+                format!("node with type '{node_type_name}' wasn't found in pipeline")
+            }
+        };
+        f.write_str(&txt)
+    }
+}
+
+impl Error for PipelineError {}
