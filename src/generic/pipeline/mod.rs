@@ -5,6 +5,7 @@ mod internal_node;
 mod output;
 mod pipeline_storage;
 
+/// Module that houses stuff related to pipelines that were created from [`Orchestrator`](crate::orchestrator::Orchestrator).
 pub mod squash_pipelines;
 pub use error::*;
 pub use fn_pipeline::*;
