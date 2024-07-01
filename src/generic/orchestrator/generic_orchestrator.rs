@@ -133,14 +133,35 @@ where
     type Error = Error;
 
     async fn run(&self, input: Self::Input) -> Result<Self::Output, Self::Error> {
+        self.run_inner(input).await.map_err(|e| match e {
+            ErrorInner::AllPipelinesSoftFailed => OrchestratorError::AllPipelinesSoftFailed.into(),
+            ErrorInner::Other(e) => e,
+        })
+    }
+}
+
+impl<Input, Output, Error> GenericOrchestrator<Input, Output, Error>
+where
+    Input: Clone,
+{
+    pub(crate) async fn run_inner(&self, input: Input) -> Result<Output, ErrorInner<Error>> {
         for pipeline in &self.pipelines {
-            match pipeline.run(input.clone()).await? {
+            match pipeline
+                .run(input.clone())
+                .await
+                .map_err(|e| ErrorInner::Other(e))?
+            {
                 InternalPipelineOutput::SoftFail => continue,
                 InternalPipelineOutput::Done(output) => return Ok(output),
             }
         }
-        Err(OrchestratorError::AllPipelinesSoftFailed.into())
+        Err(ErrorInner::AllPipelinesSoftFailed)
     }
+}
+
+pub(crate) enum ErrorInner<E> {
+    AllPipelinesSoftFailed,
+    Other(E),
 }
 
 impl<Input, Output, Error> GenericOrchestrator<Input, Output, Error>
