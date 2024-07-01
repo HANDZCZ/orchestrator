@@ -34,7 +34,7 @@ use async_trait::async_trait;
 /// }
 /// ```
 #[cfg_attr(not(docs_cfg), async_trait)]
-pub trait Orchestrator
+pub trait Orchestrator: Send + Sync + 'static
 where
     Self::Input: Send + Sync + Clone + 'static,
     Self::Output: Send + Sync + 'static,
