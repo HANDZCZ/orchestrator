@@ -5,6 +5,7 @@ mod internal_node;
 mod output;
 mod pipeline_storage;
 
+pub mod squash_pipelines;
 pub use error::*;
 pub use fn_pipeline::*;
 pub use generic_pipeline::*;
