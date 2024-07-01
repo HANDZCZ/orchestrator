@@ -13,6 +13,45 @@ use crate::{
 trait DebuggablePipeline: Pipeline + Debug {}
 impl<T> DebuggablePipeline for T where T: Pipeline + Debug {}
 
+/// Type that wraps around some [`Pipeline`] to crate a [`Node`] from it.
+///
+/// Example that shows usage of [`PipelineAsNode`].
+/// ```no_run
+/// use orchestrator::{
+///     async_trait,
+///     pipeline::Pipeline,
+///     generic::{
+///         node::squash_nodes::PipelineAsNodeExt,
+///         pipeline::PipelineOutput
+///     }
+/// };
+///
+/// #[derive(Debug)]
+/// struct MyPipeline;
+///
+/// #[async_trait]
+/// impl Pipeline for MyPipeline {
+///     type Input = String;
+///     type Output = String;
+///     type Error = ();
+///
+///     async fn run(&self, input: Self::Input) -> Result<Self::Output, Self::Error> {
+///         // some io bound operation
+///         // let input = {...}.await;
+///         Ok(input)
+///     }
+/// }
+///
+/// #[tokio::main]
+/// async fn main() {
+///     // construct pipeline
+///     let pipeline = MyPipeline;
+///     // convert it to node
+///     let pipeline_as_node = pipeline.into_node();
+///     // do something with the node
+///     // ...
+/// }
+/// ```
 #[derive(Debug)]
 pub struct PipelineAsNode<Input, Output, Error> {
     #[cfg(docs_cfg)]
@@ -28,6 +67,7 @@ impl<Input, Output, Error> Clone for PipelineAsNode<Input, Output, Error> {
     }
 }
 impl<Input, Output, Error> PipelineAsNode<Input, Output, Error> {
+    /// Creates new instance of [`PipelineAsNode`] from type that implements [`Pipeline`] trait.
     pub fn new<PipelineType>(pipeline: PipelineType) -> Self
     where
         PipelineType: Pipeline<Input = Input, Output = Output, Error = Error> + Debug + 'static,
@@ -58,7 +98,9 @@ where
     }
 }
 
+/// Extension for [`Pipeline`] trait that converts pipeline into [`Node`].
 pub trait PipelineAsNodeExt: Pipeline + Debug {
+    /// Converts [`Pipeline`] into [`Node`].
     fn into_node(self) -> PipelineAsNode<Self::Input, Self::Output, Self::Error>
     where
         Self: Sized,
