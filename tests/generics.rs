@@ -1,10 +1,14 @@
-use std::any;
+use std::{
+    any,
+    sync::{Arc, RwLock},
+};
 
 use orchestrator::{
     async_trait,
     generic::{
         node::{
             fn_node::{FnNode, FnNodeFutureExt, FnOutput},
+            squash_nodes::OrchestratorAsNodeExt,
             AnyNode, Node, NodeOutput, Returnable,
         },
         orchestrator::{GenericOrchestrator, OrchestratorError},
@@ -151,7 +155,7 @@ impl Node for RepeatPipeToStringForwarder {
         _pipeline_storage: &mut PipelineStorage,
     ) -> Result<NodeOutput<Self::Output>, Self::Error> {
         if self.times == 0 {
-            return Self::return_from_pipeline(input).into();
+            return Self::advance(input).into();
         }
         self.times -= 1;
         Self::pipe_to::<StringForwarder>(input).into()
@@ -492,4 +496,97 @@ async fn pipeline_storage_test() {
 
     let res = pipeline.run(()).await;
     assert_eq!(res, Ok(PipelineOutput::Done(2)));
+}
+
+#[tokio::test]
+async fn squash_pipeline() {
+    let node_ran = Arc::new(RwLock::new(0usize));
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+        .add_node(StringMatcher("match"))
+        .add_node(StringForwarder)
+        .add_node(RepeatPipeToStringForwarder { times: 3 })
+        .add_node({
+            let node_ran = node_ran.clone();
+            FnNode::<_, _, MyPipelineError, _>::new(move |input: String, _| {
+                let node_ran = node_ran.clone();
+                async move {
+                    {
+                        let mut lock = node_ran.write().unwrap();
+                        *lock += 1;
+                    }
+                    AnyNode::advance(input).into()
+                }
+                .into_fn_output()
+            })
+        })
+        .finish();
+    let squash_node = pipeline.into_node();
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+        .add_node(squash_node.clone())
+        .add_node(squash_node.clone())
+        .add_node(squash_node.clone())
+        .add_node(squash_node.clone())
+        .add_node(squash_node)
+        .finish();
+    let mut orchestrator: GenericOrchestrator<String, String, MyOrchestratorError> =
+        GenericOrchestrator::new();
+    orchestrator.add_pipeline(pipeline);
+    let res = orchestrator.run("match".into()).await;
+    let lock = node_ran.read().unwrap();
+    assert_eq!(res, Ok("match".to_owned()));
+    assert_eq!(*lock, 5);
+}
+
+impl From<PipelineError> for MyOrchestratorError {
+    fn from(value: PipelineError) -> Self {
+        MyPipelineError::from(value).into()
+    }
+}
+
+#[tokio::test]
+async fn squash_orchestrator() {
+    let node_ran = Arc::new(RwLock::new(0usize));
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+        .add_node(StringMatcher("match"))
+        .add_node(StringForwarder)
+        .add_node(RepeatPipeToStringForwarder { times: 3 })
+        .add_node({
+            let node_ran = node_ran.clone();
+            FnNode::<_, _, MyPipelineError, _>::new(move |input: String, _| {
+                let node_ran = node_ran.clone();
+                async move {
+                    {
+                        let mut lock = node_ran.write().unwrap();
+                        *lock += 1;
+                    }
+                    AnyNode::advance(input).into()
+                }
+                .into_fn_output()
+            })
+        })
+        .finish();
+    let squash_node = pipeline.into_node();
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+        .add_node(squash_node.clone())
+        .add_node(squash_node.clone())
+        .add_node(squash_node.clone())
+        .add_node(squash_node.clone())
+        .add_node(squash_node)
+        .finish();
+    let mut orchestrator: GenericOrchestrator<String, String, MyOrchestratorError> =
+        GenericOrchestrator::new();
+    orchestrator.add_pipeline(pipeline);
+    let squash_node = orchestrator.into_node();
+    let pipeline = GenericPipeline::<String, String, MyOrchestratorError>::new()
+        .add_node(squash_node.clone())
+        .add_node(squash_node.clone())
+        .add_node(squash_node)
+        .finish();
+    let mut orchestrator: GenericOrchestrator<String, String, MyOrchestratorError> =
+        GenericOrchestrator::new();
+    orchestrator.add_pipeline(pipeline);
+    let res = orchestrator.run("match".into()).await;
+    let lock = node_ran.read().unwrap();
+    assert_eq!(res, Ok("match".to_owned()));
+    assert_eq!(*lock, 15);
 }
