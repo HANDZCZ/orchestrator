@@ -201,7 +201,7 @@ pub type GenericPipelineBuilt<Input, Output, Error> =
 
 impl<Input, Output, Error> GenericPipelineNew<Input, Output, Error>
 where
-    Input: Send + Sync + Clone + 'static,
+    Input: Send + Sync + 'static,
     Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
     PipelineError: Into<Error>,
@@ -222,7 +222,7 @@ where
 
 impl<Input, Output, Error> Default for GenericPipelineNew<Input, Output, Error>
 where
-    Input: Send + Sync + Clone + 'static,
+    Input: Send + Sync + 'static,
     Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
     PipelineError: Into<Error>,
@@ -267,7 +267,7 @@ where
 #[cfg_attr(not(docs_cfg), async_trait)]
 impl<Input, Output, Error> Pipeline for GenericPipelineBuilt<Input, Output, Error>
 where
-    Input: Send + Sync + Clone + 'static,
+    Input: Send + Sync + 'static,
     Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
     PipelineError: Into<Error>,
@@ -368,7 +368,7 @@ where
 
 impl<Input, Output, Error> GenericPipelineNew<Input, Output, Error>
 where
-    Input: Debug + Send + Sync + Clone + 'static,
+    Input: Debug + Send + Sync + 'static,
     Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
     PipelineError: Into<Error>,
@@ -398,7 +398,7 @@ where
 
 impl<Input, Output, Error, NodeInput> GenericPipelineAddingNodes<Input, Output, Error, NodeInput>
 where
-    Input: Send + Sync + Clone + 'static,
+    Input: Send + Sync + 'static,
     Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
     PipelineError: Into<Error>,
