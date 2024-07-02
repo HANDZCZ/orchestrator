@@ -296,59 +296,13 @@ where
         pipeline_storage: &mut PipelineStorage,
     ) -> Result<PipelineOutput<Output>, Error> {
         let mut data: Box<dyn Any + Sync + Send> = Box::new(input);
+        let mut nodes = (0..self.nodes.len())
+            .map(|_| None::<Box<dyn InternalNode<Error>>>)
+            .collect::<Vec<_>>();
         let mut piped = false;
         let mut index = 0;
-        let mut first = self.nodes[0].duplicate();
-        match first.run(data, piped, pipeline_storage).await? {
-            InternalNodeOutput::NodeOutput(NodeOutput::SoftFail) => {
-                return Ok(PipelineOutput::SoftFail)
-            }
-            InternalNodeOutput::NodeOutput(NodeOutput::ReturnFromPipeline(data)) => {
-                return Self::get_pipeline_output(data, &*first);
-            }
-            InternalNodeOutput::NodeOutput(NodeOutput::PipeToNode(NextNode {
-                output,
-                next_node_type,
-                next_node_type_name,
-            })) => {
-                data = output;
-                piped = true;
-                index = self.get_node_index(next_node_type).ok_or(
-                    PipelineError::NodeWithTypeNotFound {
-                        node_type_name: next_node_type_name,
-                    }
-                    .into(),
-                )?;
-            }
-            InternalNodeOutput::NodeOutput(NodeOutput::Advance(output)) => {
-                data = output;
-                piped = false;
-                index += 1;
-            }
-            InternalNodeOutput::WrongInputType => {
-                unreachable!(
-                    "Type safety for the win!\n\tIf you reach this something went seriously wrong."
-                );
-            }
-        };
-
-        let mut nodes: Vec<Box<dyn InternalNode<Error>>> = Vec::with_capacity(self.nodes.len());
-        nodes.push(first);
-        nodes.extend(self.nodes.iter().skip(1).map(|node| node.duplicate()));
-
         loop {
-            if index >= nodes.len() {
-                // When index is larger than nodes.len() last node in nodes should have been the last node that have ran.
-                // In other words data should contain last node output type.
-                let output = self
-                    .last_node_output_converter
-                    .as_ref()
-                    .expect("Last node output converted should always exist in built pipeline")
-                    .convert(data)
-                    .expect("Converting data to pipeline output failed");
-                return Ok(PipelineOutput::Done(output));
-            }
-            let node = &mut nodes[index];
+            let node = nodes[index].get_or_insert_with(|| self.nodes[index].duplicate());
             match node.run(data, piped, pipeline_storage).await? {
                 InternalNodeOutput::NodeOutput(NodeOutput::SoftFail) => {
                     return Ok(PipelineOutput::SoftFail)
@@ -378,6 +332,17 @@ where
                 InternalNodeOutput::WrongInputType => {
                     unreachable!("Type safety for the win!\n\tIf you reach this something went seriously wrong.");
                 }
+            }
+            if index >= nodes.len() {
+                // When index is larger than nodes.len() last node in nodes should have been the last node that have ran.
+                // In other words data should contain last node output type.
+                let output = self
+                    .last_node_output_converter
+                    .as_ref()
+                    .expect("Last node output converted should always exist in built pipeline")
+                    .convert(data)
+                    .expect("Converting data to pipeline output failed");
+                return Ok(PipelineOutput::Done(output));
             }
         }
     }
