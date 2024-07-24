@@ -13,6 +13,7 @@ tokio = { version = "1.38.0", features = ["full"] }
 orchestrator = { path = ".", features = ["pipeline_early_return"] }
 
 [package.metadata.docs.rs]
+all-features = true
 rustdoc-args = ["--cfg", "docs_cfg"]
 
 [features]

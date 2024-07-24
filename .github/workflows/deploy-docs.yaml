@@ -28,7 +28,7 @@ jobs:
       - name: Disable warnings about cfg flag
         run: echo -e '\n[lints.rust]\nunexpected_cfgs = { level = "warn", check-cfg = ["cfg(docs_cfg)"] }' >> Cargo.toml
       - name: Build docs
-        run: cargo +nightly doc --no-deps
+        run: cargo +nightly doc --no-deps --all-features
       - name: Add redirect
         run: echo '<meta http-equiv="refresh" content="0;url=orchestrator/index.html">' > target/doc/index.html
       - name: Upload Pages artifact

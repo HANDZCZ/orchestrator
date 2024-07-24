@@ -12,6 +12,7 @@
 #![forbid(missing_debug_implementations)]
 #![forbid(invalid_doc_attributes)]
 #![cfg_attr(docs_cfg, feature(async_fn_in_trait))]
+#![cfg_attr(docs_cfg, feature(doc_auto_cfg))]
 
 //! A crate that provides pipelines and an orchestrator.
 //!
