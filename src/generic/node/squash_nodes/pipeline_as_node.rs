@@ -57,7 +57,7 @@ pub struct PipelineAsNode<Input, Output, Error> {
     #[cfg(docs_cfg)]
     _types: std::marker::PhantomData<(Input, Output, Error)>,
     #[cfg(not(docs_cfg))]
-    pipeline: Arc<Box<dyn DebuggablePipeline<Input = Input, Output = Output, Error = Error>>>,
+    pipeline: Arc<dyn DebuggablePipeline<Input = Input, Output = Output, Error = Error>>,
 }
 impl<Input, Output, Error> Clone for PipelineAsNode<Input, Output, Error> {
     fn clone(&self) -> Self {
@@ -73,7 +73,7 @@ impl<Input, Output, Error> PipelineAsNode<Input, Output, Error> {
         PipelineType: Pipeline<Input = Input, Output = Output, Error = Error> + Debug + 'static,
     {
         Self {
-            pipeline: Arc::new(Box::new(pipeline)),
+            pipeline: Arc::new(pipeline),
         }
     }
 }

@@ -72,8 +72,7 @@ pub struct OrchestratorAsPipeline<Input, Output, Error> {
     #[cfg(docs_cfg)]
     _types: std::marker::PhantomData<(Input, Output, Error)>,
     #[cfg(not(docs_cfg))]
-    orchestrator:
-        Arc<Box<dyn DebuggableOrchestrator<Input = Input, Output = Output, Error = Error>>>,
+    orchestrator: Arc<dyn DebuggableOrchestrator<Input = Input, Output = Output, Error = Error>>,
 }
 impl<Input, Output, Error> Clone for OrchestratorAsPipeline<Input, Output, Error> {
     fn clone(&self) -> Self {
@@ -90,7 +89,7 @@ impl<Input, Output, Error> OrchestratorAsPipeline<Input, Output, Error> {
             Orchestrator<Input = Input, Output = Output, Error = Error> + Debug + 'static,
     {
         Self {
-            orchestrator: Arc::new(Box::new(orchestrator)),
+            orchestrator: Arc::new(orchestrator),
         }
     }
 }
