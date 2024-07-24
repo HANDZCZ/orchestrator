@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use crate::{
     generic::{
         node::{Node, NodeOutput},
-        pipeline::{GenericPipelineBuilt, PipelineError, PipelineOutput, PipelineStorage},
+        pipeline::{GenericPipeline, PipelineError, PipelineOutput, PipelineStorage},
     },
     pipeline::Pipeline,
 };
@@ -88,7 +88,7 @@ use crate::{
 ///     let fwd_node = ForwardNode::<String>::default();
 ///
 ///     // construct generic pipeline that takes and returns a String
-///     let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+///     let pipeline = GenericPipeline::<String, String, MyPipelineError>::builder()
 ///         // construct and add a nodes that take and return a String
 ///         .add_node(fwd_node.clone())
 ///         .add_node(ForwardNode::<String>::default())
@@ -100,7 +100,7 @@ use crate::{
 ///     let pipeline_as_node = pipeline.into_node();
 ///
 ///     // construct generic pipeline that takes and returns a string
-///     let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+///     let pipeline = GenericPipeline::<String, String, MyPipelineError>::builder()
 ///         // add a node that was created from pipeline
 ///         .add_node(pipeline_as_node.clone())
 ///         .add_node(pipeline_as_node.clone())
@@ -123,14 +123,14 @@ use crate::{
 /// ```
 #[derive(Debug)]
 pub struct GenericPipelineAsNode<Input, Output, Error> {
-    pipeline: Arc<GenericPipelineBuilt<Input, Output, Error>>,
+    pipeline: Arc<GenericPipeline<Input, Output, Error>>,
     share_pipeline_storage: bool,
 }
 
 impl<Input, Output, Error> GenericPipelineAsNode<Input, Output, Error> {
-    /// Creates new instance of [`GenericPipelineAsNode`] from [`GenericPipelineBuilt`].
+    /// Creates new instance of [`GenericPipelineAsNode`] from [`GenericPipeline`].
     #[must_use]
-    pub fn new(pipeline: GenericPipelineBuilt<Input, Output, Error>) -> Self {
+    pub fn new(pipeline: GenericPipeline<Input, Output, Error>) -> Self {
         Self {
             pipeline: Arc::new(pipeline),
             share_pipeline_storage: false,
@@ -148,16 +148,16 @@ impl<Input, Output, Error> GenericPipelineAsNode<Input, Output, Error> {
         self
     }
 }
-impl<Input, Output, Error> From<GenericPipelineBuilt<Input, Output, Error>>
+impl<Input, Output, Error> From<GenericPipeline<Input, Output, Error>>
     for GenericPipelineAsNode<Input, Output, Error>
 {
-    fn from(value: GenericPipelineBuilt<Input, Output, Error>) -> Self {
+    fn from(value: GenericPipeline<Input, Output, Error>) -> Self {
         Self::new(value)
     }
 }
 
-impl<Input, Output, Error> GenericPipelineBuilt<Input, Output, Error> {
-    /// Converts [`GenericPipelineBuilt`] into [`Node`].
+impl<Input, Output, Error> GenericPipeline<Input, Output, Error> {
+    /// Converts [`GenericPipeline`] into [`Node`].
     #[must_use]
     pub fn into_node(self) -> GenericPipelineAsNode<Input, Output, Error> {
         GenericPipelineAsNode::new(self)

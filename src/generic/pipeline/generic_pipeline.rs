@@ -19,22 +19,6 @@ use super::{
     PipelineError, PipelineOutput, PipelineStorage,
 };
 
-/// Marker type that is used to say that [`GenericPipeline`] was just created and does not have any nodes in it.
-#[derive(Debug)]
-pub struct PipelineStateNew;
-/// Marker type that is used to say that [`GenericPipeline`] is in the process of adding nodes.
-/// In this state pipeline has at least one node inside.
-#[derive(Debug)]
-pub struct PipelineStateAddingNodes;
-/// Marker type that is used to say that [`GenericPipeline`] has been built.
-/// In this state pipeline has at least one node inside.
-#[derive(Debug)]
-pub struct PipelineStateBuilt;
-
-/// Marker type that is used to say that [`GenericPipeline`] can accept any type as the next [`Node`] input.
-#[derive(Debug)]
-pub struct AnyNodeInput;
-
 /// Generic implementation of [`Pipeline`] trait.
 /// That takes some input type and returns some output type or some error type.
 ///
@@ -130,7 +114,7 @@ pub struct AnyNodeInput;
 /// async fn main() {
 ///     // construct generic pipeline that takes and returns a string
 ///     // notice the builder pattern - it is needed for type safety
-///     let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+///     let pipeline = GenericPipeline::<String, String, MyPipelineError>::builder()
 ///
 ///         // construct and add a node that takes and returns a WrapString
 ///         // the pipeline input (String) will be converted into WrapString
@@ -162,24 +146,14 @@ pub struct AnyNodeInput;
 ///     assert!(matches!(res, expected));
 /// }
 /// ```
-pub struct GenericPipeline<
-    Input,
-    Output,
-    Error,
-    NextNodeInput = AnyNodeInput,
-    State = PipelineStateNew,
-> {
+pub struct GenericPipeline<Input, Output, Error> {
     _input: PhantomData<Input>,
     _output: PhantomData<Output>,
-    _next_node_input: PhantomData<NextNodeInput>,
-    _pipeline_state: PhantomData<State>,
-    last_node_output_converter: Option<Box<dyn ConvertTo<Output>>>,
+    last_node_output_converter: Box<dyn ConvertTo<Output>>,
     nodes: Vec<Box<dyn InternalNode<Error>>>,
 }
 
-impl<Input, Output, Error, NextNodeInput, State> Debug
-    for GenericPipeline<Input, Output, Error, NextNodeInput, State>
-{
+impl<Input, Output, Error> Debug for GenericPipeline<Input, Output, Error> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GenericPipeline")
             .field("nodes", &self.nodes)
@@ -187,40 +161,60 @@ impl<Input, Output, Error, NextNodeInput, State> Debug
     }
 }
 
-/// Specifies the type for new [`GenericPipeline`].
-pub type GenericPipelineNew<Input, Output, Error> =
-    GenericPipeline<Input, Output, Error, AnyNodeInput, PipelineStateNew>;
-
-/// Specifies the type for [`GenericPipeline`] that is in the process of adding nodes.
-pub type GenericPipelineAddingNodes<Input, Output, Error, NextNodeInput> =
-    GenericPipeline<Input, Output, Error, NextNodeInput, PipelineStateAddingNodes>;
-
-/// Specifies the type for built [`GenericPipeline`].
-pub type GenericPipelineBuilt<Input, Output, Error> =
-    GenericPipeline<Input, Output, Error, (), PipelineStateBuilt>;
-
-impl<Input, Output, Error> GenericPipelineNew<Input, Output, Error>
+impl<Input, Output, Error> GenericPipeline<Input, Output, Error>
 where
     Input: Send + Sync + 'static,
     Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
     PipelineError: Into<Error>,
 {
-    /// Creates new instance of [`GenericPipeline`].
+    /// Creates builder for [`GenericPipeline`].
+    #[must_use]
+    pub fn builder() -> GenericPipelineBuilder<Input, Output, Error, Input> {
+        GenericPipelineBuilder::new()
+    }
+}
+
+/// Builder for [`GenericPipeline`].
+pub struct GenericPipelineBuilder<Input, Output, Error, NextNodeInput> {
+    _input: PhantomData<Input>,
+    _output: PhantomData<Output>,
+    _next_node_input: PhantomData<NextNodeInput>,
+    nodes: Vec<Box<dyn InternalNode<Error>>>,
+}
+
+impl<Input, Output, Error, NextNodeInput> Debug
+    for GenericPipelineBuilder<Input, Output, Error, NextNodeInput>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GenericPipelineBuilderAddingNodes")
+            .field("nodes", &self.nodes)
+            .finish_non_exhaustive()
+    }
+}
+
+#[allow(clippy::mismatching_type_param_order)]
+impl<Input, Output, Error> GenericPipelineBuilder<Input, Output, Error, Input>
+where
+    Input: Send + Sync + 'static,
+    Output: Send + Sync + 'static,
+    Error: Send + Sync + 'static,
+    PipelineError: Into<Error>,
+{
+    /// Creates new instance of [`GenericPipelineBuilder`].
     #[must_use]
     pub fn new() -> Self {
         Self {
             _input: PhantomData,
             _output: PhantomData,
             _next_node_input: PhantomData,
-            _pipeline_state: PhantomData,
-            last_node_output_converter: None,
             nodes: Vec::new(),
         }
     }
 }
 
-impl<Input, Output, Error> Default for GenericPipelineNew<Input, Output, Error>
+#[allow(clippy::mismatching_type_param_order)]
+impl<Input, Output, Error> Default for GenericPipelineBuilder<Input, Output, Error, Input>
 where
     Input: Send + Sync + 'static,
     Output: Send + Sync + 'static,
@@ -232,7 +226,7 @@ where
     }
 }
 
-impl<Input, Output, Error> GenericPipelineBuilt<Input, Output, Error>
+impl<Input, Output, Error> GenericPipeline<Input, Output, Error>
 where
     Output: 'static,
     PipelineError: Into<Error>,
@@ -265,7 +259,7 @@ where
 }
 
 #[cfg_attr(not(docs_cfg), async_trait)]
-impl<Input, Output, Error> Pipeline for GenericPipelineBuilt<Input, Output, Error>
+impl<Input, Output, Error> Pipeline for GenericPipeline<Input, Output, Error>
 where
     Input: Send + Sync + 'static,
     Output: Send + Sync + 'static,
@@ -283,7 +277,7 @@ where
     }
 }
 
-impl<Input, Output, Error> GenericPipelineBuilt<Input, Output, Error>
+impl<Input, Output, Error> GenericPipeline<Input, Output, Error>
 where
     Input: Send + Sync + 'static,
     Output: Send + Sync + 'static,
@@ -338,8 +332,6 @@ where
                 // In other words data should contain last node output type.
                 let output = self
                     .last_node_output_converter
-                    .as_ref()
-                    .expect("Last node output converted should always exist in built pipeline")
                     .convert(data)
                     .expect("Converting data to pipeline output failed");
                 return Ok(PipelineOutput::Done(output));
@@ -348,37 +340,7 @@ where
     }
 }
 
-impl<Input, Output, Error> GenericPipelineNew<Input, Output, Error>
-where
-    Input: Debug + Send + Sync + 'static,
-    Output: Send + Sync + 'static,
-    Error: Send + Sync + 'static,
-    PipelineError: Into<Error>,
-{
-    /// Adds node to the [`GenericPipeline`].
-    pub fn add_node<NodeType>(
-        mut self,
-        node: NodeType,
-    ) -> GenericPipelineAddingNodes<Input, Output, Error, NodeType::Output>
-    where
-        NodeType: Node + Debug,
-        Input: Into<NodeType::Input>,
-        NodeType::Error: Into<Error>,
-    {
-        self.nodes
-            .push(Box::new(InternalNodeStruct::<NodeType, Input>::new(node)));
-        GenericPipelineAddingNodes {
-            _input: PhantomData,
-            _output: PhantomData,
-            _next_node_input: PhantomData,
-            _pipeline_state: PhantomData,
-            last_node_output_converter: None,
-            nodes: self.nodes,
-        }
-    }
-}
-
-impl<Input, Output, Error, NodeInput> GenericPipelineAddingNodes<Input, Output, Error, NodeInput>
+impl<Input, Output, Error, NodeInput> GenericPipelineBuilder<Input, Output, Error, NodeInput>
 where
     Input: Send + Sync + 'static,
     Output: Send + Sync + 'static,
@@ -386,11 +348,11 @@ where
     PipelineError: Into<Error>,
     NodeInput: Debug + Send + Sync + 'static,
 {
-    /// Adds node to the [`GenericPipeline`].
+    /// Adds node to the pipeline.
     pub fn add_node<NodeType>(
         mut self,
         node: NodeType,
-    ) -> GenericPipelineAddingNodes<Input, Output, Error, NodeType::Output>
+    ) -> GenericPipelineBuilder<Input, Output, Error, NodeType::Output>
     where
         NodeType: Node + Debug,
         NodeType::Error: Into<Error>,
@@ -400,34 +362,28 @@ where
             .push(Box::new(InternalNodeStruct::<NodeType, NodeInput>::new(
                 node,
             )));
-        GenericPipelineAddingNodes {
+        GenericPipelineBuilder {
             _input: PhantomData,
             _output: PhantomData,
             _next_node_input: PhantomData,
-            _pipeline_state: PhantomData,
-            last_node_output_converter: None,
             nodes: self.nodes,
         }
     }
 }
 
 impl<Input, Output, Error, LastNodeOutput>
-    GenericPipelineAddingNodes<Input, Output, Error, LastNodeOutput>
+    GenericPipelineBuilder<Input, Output, Error, LastNodeOutput>
 where
     Output: Send + Sync + 'static,
     LastNodeOutput: Into<Output> + Send + Sync + 'static,
 {
-    /// Finalizes the pipeline so any more nodes can't be added to it.
+    /// Finalizes the pipeline so nodes can't be added to it.
     #[must_use]
-    pub fn finish(self) -> GenericPipelineBuilt<Input, Output, Error> {
-        GenericPipelineBuilt {
+    pub fn finish(self) -> GenericPipeline<Input, Output, Error> {
+        GenericPipeline {
             _input: PhantomData,
             _output: PhantomData,
-            _next_node_input: PhantomData,
-            _pipeline_state: PhantomData,
-            last_node_output_converter: Some(Box::new(
-                DowncastConverter::<LastNodeOutput, Output>::new(),
-            )),
+            last_node_output_converter: Box::new(DowncastConverter::<LastNodeOutput, Output>::new()),
             nodes: self.nodes,
         }
     }

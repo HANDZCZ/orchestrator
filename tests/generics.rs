@@ -201,7 +201,7 @@ impl Node for StringToUnitEarlyReturnUnit {
 
 #[tokio::test]
 async fn pipeline_success() {
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::builder()
         .add_node(StringMatcher("match"))
         .add_node(StringForwarder)
         .add_node(RepeatPipeToStringForwarder { times: 3 })
@@ -248,7 +248,7 @@ impl Node for IsOkToString {
 
 #[tokio::test]
 async fn pipeline_io_conversion_success() {
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::builder()
         .add_node(StringToIsOk)
         .add_node(StringForwarder)
         .add_node(IsOkToString)
@@ -260,7 +260,7 @@ async fn pipeline_io_conversion_success() {
 
 #[tokio::test]
 async fn soft_fail() {
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::builder()
         .add_node(StringMatcher("nomatch"))
         .add_node(StringForwarder)
         .add_node(RepeatPipeToStringForwarder { times: 3 })
@@ -271,7 +271,7 @@ async fn soft_fail() {
 
 #[tokio::test]
 async fn node_not_found() {
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::builder()
         .add_node(StringMatcher(""))
         .add_node(RepeatPipeToStringForwarder { times: 3 })
         .finish();
@@ -286,7 +286,7 @@ async fn node_not_found() {
 
 #[tokio::test]
 async fn wrong_output() {
-    let pipeline = GenericPipeline::<(), (), MyPipelineError>::new()
+    let pipeline = GenericPipeline::<(), (), MyPipelineError>::builder()
         .add_node(UnitToStringEarlyReturnString)
         .add_node(StringToUnitEarlyReturnUnit)
         .finish();
@@ -303,7 +303,7 @@ async fn wrong_output() {
 
 #[tokio::test]
 async fn orchestrator_success() {
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::builder()
         .add_node(StringMatcher("match"))
         .add_node(StringForwarder)
         .add_node(RepeatPipeToStringForwarder { times: 3 })
@@ -331,7 +331,7 @@ impl From<IsOk> for String {
 
 #[tokio::test]
 async fn orchestrator_io_conversion_success() {
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::builder()
         .add_node(StringMatcher("match"))
         .add_node(StringForwarder)
         .add_node(RepeatPipeToStringForwarder { times: 3 })
@@ -345,7 +345,7 @@ async fn orchestrator_io_conversion_success() {
 
 #[tokio::test]
 async fn orchestrator_no_pipeline() {
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::builder()
         .add_node(StringMatcher("nomatch"))
         .add_node(StringForwarder)
         .add_node(RepeatPipeToStringForwarder { times: 3 })
@@ -391,7 +391,7 @@ async fn fn_node_test() {
             .into_fn_output()
         });
 
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::builder()
         .add_node(normal_async_fn_with_sugar)
         .add_node(closure_with_async)
         .add_node(normal_async_fn)
@@ -487,7 +487,7 @@ async fn pipeline_storage_test() {
     }
     let last_node = FnNode::new(last_node);
 
-    let pipeline = GenericPipeline::<(), usize, MyPipelineError>::new()
+    let pipeline = GenericPipeline::<(), usize, MyPipelineError>::builder()
         .add_node(first_node)
         .add_node(middle_node)
         .add_node(PipelineStorageTest)
@@ -501,7 +501,7 @@ async fn pipeline_storage_test() {
 #[tokio::test]
 async fn squash_pipeline() {
     let node_ran = Arc::new(RwLock::new(0usize));
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::builder()
         .add_node(StringMatcher("match"))
         .add_node(StringForwarder)
         .add_node(RepeatPipeToStringForwarder { times: 3 })
@@ -521,7 +521,7 @@ async fn squash_pipeline() {
         })
         .finish();
     let squash_node = pipeline.into_node();
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::builder()
         .add_node(squash_node.clone())
         .add_node(squash_node.clone())
         .add_node(squash_node.clone())
@@ -546,7 +546,7 @@ impl From<PipelineError> for MyOrchestratorError {
 #[tokio::test]
 async fn squash_orchestrator() {
     let node_ran = Arc::new(RwLock::new(0usize));
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::builder()
         .add_node(StringMatcher("match"))
         .add_node(StringForwarder)
         .add_node(RepeatPipeToStringForwarder { times: 3 })
@@ -566,7 +566,7 @@ async fn squash_orchestrator() {
         })
         .finish();
     let squash_node = pipeline.into_node();
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::builder()
         .add_node(squash_node.clone())
         .add_node(squash_node.clone())
         .add_node(squash_node.clone())
@@ -577,7 +577,7 @@ async fn squash_orchestrator() {
         GenericOrchestrator::new();
     orchestrator.add_pipeline(pipeline);
     let squash_node = orchestrator.into_node();
-    let pipeline = GenericPipeline::<String, String, MyOrchestratorError>::new()
+    let pipeline = GenericPipeline::<String, String, MyOrchestratorError>::builder()
         .add_node(squash_node.clone())
         .add_node(squash_node.clone())
         .add_node(squash_node)

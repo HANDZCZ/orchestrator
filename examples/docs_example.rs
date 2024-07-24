@@ -134,7 +134,7 @@ impl From<MyPipelineError> for MyOrchestratorError<MyPipelineError> {
 async fn main() {
     // construct generic pipeline that takes and returns a string
     // notice the builder pattern - it is needed for type safety
-    let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+    let pipeline = GenericPipeline::<String, String, MyPipelineError>::builder()
         // construct and add a node that takes and returns a WrapString
         // the pipeline input (String) will be converted into WrapString
         // thanks to implementation of WrapString: From<String> above

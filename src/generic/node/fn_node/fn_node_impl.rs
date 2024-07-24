@@ -107,7 +107,7 @@ use super::FnOutput;
 ///     }.into_fn_output());
 ///
 ///     // construct generic pipeline that takes and returns a string
-///     let pipeline = GenericPipeline::<String, String, MyPipelineError>::new()
+///     let pipeline = GenericPipeline::<String, String, MyPipelineError>::builder()
 ///
 ///         // create and add node from function
 ///         .add_node(FnNode::new(normal_async_fn))
