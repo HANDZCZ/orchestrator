@@ -1,5 +1,5 @@
 use std::{
-    any::{self, Any, TypeId},
+    any::{self, TypeId},
     fmt::Debug,
     marker::PhantomData,
 };
@@ -78,9 +78,10 @@ pub trait Returnable<NodeOutputType> {
     /// }
     /// # }
     /// ```
+    #[cfg(feature = "pipeline_early_return")]
     fn return_from_pipeline<Output>(output: Output) -> NodeOutput<NodeOutputType>
     where
-        Output: Any + Sync + Send + Debug,
+        Output: std::any::Any + Sync + Send + Debug,
     {
         NodeOutput::ReturnFromPipeline(Box::new(output))
     }

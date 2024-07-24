@@ -1,5 +1,5 @@
 use std::{
-    any::{self, Any, TypeId},
+    any::{Any, TypeId},
     fmt::Debug,
     marker::PhantomData,
 };
@@ -26,6 +26,7 @@ pub trait InternalNode<Error>: Debug + Send + Sync {
     ) -> Result<InternalNodeOutput, Error>;
     fn duplicate(&self) -> Box<dyn InternalNode<Error>>;
     fn get_node_type(&self) -> TypeId;
+    #[cfg(feature = "pipeline_early_return")]
     fn get_node_type_name(&self) -> &'static str;
 }
 
@@ -88,6 +89,7 @@ where
         Ok(InternalNodeOutput::NodeOutput(match output {
             NodeOutput::PipeToNode(next_node) => NodeOutput::PipeToNode(next_node),
             NodeOutput::SoftFail => NodeOutput::SoftFail,
+            #[cfg(feature = "pipeline_early_return")]
             NodeOutput::ReturnFromPipeline(output) => NodeOutput::ReturnFromPipeline(output),
             NodeOutput::Advance(output) => NodeOutput::Advance(Box::new(output)),
         }))
@@ -101,7 +103,8 @@ where
     fn get_node_type(&self) -> TypeId {
         TypeId::of::<NodeType>()
     }
+    #[cfg(feature = "pipeline_early_return")]
     fn get_node_type_name(&self) -> &'static str {
-        any::type_name::<NodeType>()
+        std::any::type_name::<NodeType>()
     }
 }

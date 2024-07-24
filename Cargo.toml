@@ -10,6 +10,10 @@ async-trait = "0.1.80"
 
 [dev-dependencies]
 tokio = { version = "1.38.0", features = ["full"] }
+orchestrator = { path = ".", features = ["pipeline_early_return"] }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "docs_cfg"]
+
+[features]
+pipeline_early_return = []

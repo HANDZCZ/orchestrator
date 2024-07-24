@@ -1,7 +1,5 @@
 use std::any::{Any, TypeId};
 
-use crate::generic::AnyDebug;
-
 /// Part of an output that object implementing [`Node`](crate::generic::node::Node) trait must return.
 ///
 /// This type is supposed to be constructed through [`Returnable`](crate::generic::node::Returnable) trait.
@@ -19,7 +17,8 @@ pub enum NodeOutput<T> {
     /// In this example Matcher can soft fail.
     SoftFail,
     /// Returns from [`Pipeline`](crate::pipeline::Pipeline) early.
-    ReturnFromPipeline(Box<dyn AnyDebug>),
+    #[cfg(feature = "pipeline_early_return")]
+    ReturnFromPipeline(Box<dyn crate::generic::AnyDebug>),
     /// Advances [`Pipeline`](crate::pipeline::Pipeline) to the next [`Node`](crate::generic::node::Node).
     Advance(T),
     /// Pipes the output from the current [`Node`](crate::generic::node::Node) to a [`Node`](crate::generic::node::Node) with defined type.

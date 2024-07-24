@@ -1,5 +1,5 @@
 use std::{
-    any::{self, Any, TypeId},
+    any::{Any, TypeId},
     fmt::Debug,
     marker::PhantomData,
 };
@@ -7,10 +7,7 @@ use std::{
 use async_trait::async_trait;
 
 use crate::{
-    generic::{
-        node::{NextNode, Node, NodeOutput},
-        AnyDebug,
-    },
+    generic::node::{NextNode, Node, NodeOutput},
     pipeline::Pipeline,
 };
 
@@ -237,8 +234,9 @@ where
             .position(|node| node.get_node_type() == ty)
     }
 
+    #[cfg(feature = "pipeline_early_return")]
     fn get_pipeline_output(
-        data: Box<dyn AnyDebug>,
+        data: Box<dyn crate::generic::AnyDebug>,
         node: &dyn InternalNode<Error>,
     ) -> Result<PipelineOutput<Output>, Error> {
         if (*data).type_id() == TypeId::of::<Output>() {
@@ -251,7 +249,7 @@ where
                 node_type_name: node.get_node_type_name(),
                 got_type_name: type_name,
                 data,
-                expected_type_name: any::type_name::<Output>(),
+                expected_type_name: std::any::type_name::<Output>(),
             }
             .into())
         }
@@ -301,6 +299,7 @@ where
                 InternalNodeOutput::NodeOutput(NodeOutput::SoftFail) => {
                     return Ok(PipelineOutput::SoftFail)
                 }
+                #[cfg(feature = "pipeline_early_return")]
                 InternalNodeOutput::NodeOutput(NodeOutput::ReturnFromPipeline(data)) => {
                     return Self::get_pipeline_output(data, &**node);
                 }
