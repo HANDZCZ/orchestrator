@@ -1,11 +1,15 @@
-use std::{any::TypeId, collections::HashMap, fmt::Debug};
+use std::{
+    any::{Any, TypeId},
+    collections::HashMap,
+    fmt::Debug,
+};
 
-use crate::generic::AnyDebug;
+use crate::generic::SuperAnyDebug;
 
 /// Pipeline wide storage that is used in [`Node`](crate::generic::node::Node).
 #[derive(Debug, Default)]
 pub struct PipelineStorage {
-    inner: HashMap<TypeId, Box<dyn AnyDebug>>,
+    inner: HashMap<TypeId, Box<dyn SuperAnyDebug>>,
 }
 
 impl PipelineStorage {
@@ -21,7 +25,7 @@ impl PipelineStorage {
     #[must_use]
     pub fn get<T>(&self) -> Option<&T>
     where
-        T: AnyDebug + 'static,
+        T: Any + Debug + Send + Sync,
     {
         self.inner.get(&TypeId::of::<T>()).map(|val| {
             let any_debug_ref = &**val;
@@ -35,7 +39,7 @@ impl PipelineStorage {
     #[must_use]
     pub fn get_mut<T>(&mut self) -> Option<&mut T>
     where
-        T: AnyDebug + 'static,
+        T: Any + Send + Sync + Debug,
     {
         self.inner.get_mut(&TypeId::of::<T>()).map(|val| {
             let any_debug_ref = &mut **val;
@@ -48,7 +52,7 @@ impl PipelineStorage {
     #[allow(clippy::missing_panics_doc)]
     pub fn insert<T>(&mut self, val: T) -> Option<T>
     where
-        T: AnyDebug + 'static,
+        T: Any + Send + Sync + Debug,
     {
         self.inner
             .insert(TypeId::of::<T>(), Box::new(val))
@@ -60,7 +64,7 @@ impl PipelineStorage {
     #[allow(clippy::missing_panics_doc)]
     pub fn remove<T>(&mut self) -> Option<T>
     where
-        T: AnyDebug + 'static,
+        T: Any + Send + Sync + Debug,
     {
         self.inner
             .remove(&TypeId::of::<T>())

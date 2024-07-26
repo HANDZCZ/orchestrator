@@ -1,4 +1,7 @@
-use std::any::{Any, TypeId};
+use std::{
+    any::{Any, TypeId},
+    fmt::Debug,
+};
 
 /// Part of an output that object implementing [`Node`](crate::generic::node::Node) trait must return.
 ///
@@ -18,7 +21,7 @@ pub enum NodeOutput<T> {
     SoftFail,
     /// Returns from [`Pipeline`](crate::pipeline::Pipeline) early.
     #[cfg(feature = "pipeline_early_return")]
-    ReturnFromPipeline(Box<dyn crate::generic::AnyDebug>),
+    ReturnFromPipeline(ReturnFromPipelineOutput),
     /// Advances [`Pipeline`](crate::pipeline::Pipeline) to the next [`Node`](crate::generic::node::Node).
     Advance(T),
     /// Pipes the output from the current [`Node`](crate::generic::node::Node) to a [`Node`](crate::generic::node::Node) with defined type.
@@ -40,3 +43,8 @@ pub struct NextNode {
     pub(crate) next_node_type: TypeId,
     pub(crate) next_node_type_name: &'static str,
 }
+
+/// Designates the output for [`NodeOutput::ReturnFromPipeline`].
+#[derive(Debug)]
+#[cfg(feature = "pipeline_early_return")]
+pub struct ReturnFromPipelineOutput(pub(crate) Box<dyn crate::generic::SuperAnyDebug>);

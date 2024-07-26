@@ -83,7 +83,7 @@ pub trait Returnable<NodeOutputType> {
     where
         Output: std::any::Any + Sync + Send + Debug,
     {
-        NodeOutput::ReturnFromPipeline(Box::new(output))
+        NodeOutput::ReturnFromPipeline(super::ReturnFromPipelineOutput(Box::new(output)))
     }
 
     /// Creates [`NodeOutput`] that advances a [`Pipeline`](crate::pipeline::Pipeline).

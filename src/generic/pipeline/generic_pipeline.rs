@@ -236,7 +236,7 @@ where
 
     #[cfg(feature = "pipeline_early_return")]
     fn get_pipeline_output(
-        data: Box<dyn crate::generic::AnyDebug>,
+        data: Box<dyn crate::generic::SuperAnyDebug>,
         node: &dyn InternalNode<Error>,
     ) -> Result<PipelineOutput<Output>, Error> {
         if (*data).type_id() == TypeId::of::<Output>() {
@@ -244,11 +244,11 @@ where
                 *data.into_box_any().downcast::<Output>().unwrap(),
             ))
         } else {
-            let (type_name, data) = data.with_type_name();
+            let type_name = (*data).get_type_name();
             Err(PipelineError::WrongOutputTypeForPipeline {
                 node_type_name: node.get_node_type_name(),
                 got_type_name: type_name,
-                data,
+                data: data.into_box_anydebug(),
                 expected_type_name: std::any::type_name::<Output>(),
             }
             .into())
@@ -300,7 +300,9 @@ where
                     return Ok(PipelineOutput::SoftFail)
                 }
                 #[cfg(feature = "pipeline_early_return")]
-                InternalNodeOutput::NodeOutput(NodeOutput::ReturnFromPipeline(data)) => {
+                InternalNodeOutput::NodeOutput(NodeOutput::ReturnFromPipeline(
+                    crate::generic::node::ReturnFromPipelineOutput(data),
+                )) => {
                     return Self::get_pipeline_output(data, &**node);
                 }
                 InternalNodeOutput::NodeOutput(NodeOutput::PipeToNode(NextNode {
