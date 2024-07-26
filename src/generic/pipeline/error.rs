@@ -1,18 +1,17 @@
 use std::{error::Error, fmt::Display};
 
-use crate::generic::AnyDebug;
-
 /// Defines which errors can occur in [`GenericPipeline`](crate::generic::pipeline::GenericPipeline).
 #[derive(Debug)]
 pub enum PipelineError {
     /// Output that is supposed to be returned from pipeline has wrong type.
+    #[cfg(feature = "pipeline_early_return")]
     WrongOutputTypeForPipeline {
         /// Name of the node which returned the wrong type.
         node_type_name: &'static str,
         /// Data that couldn't be downcasted to pipeline output type.
         ///
         /// You can format them with debug flag!
-        data: Box<dyn AnyDebug>,
+        data: Box<dyn crate::generic::AnyDebug>,
         /// Name of the type that was expected.
         ///
         /// It's the name of the type you set as the pipeline output.
@@ -31,6 +30,7 @@ pub enum PipelineError {
 impl Display for PipelineError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let txt = match self {
+            #[cfg(feature = "pipeline_early_return")]
             PipelineError::WrongOutputTypeForPipeline {
                 node_type_name,
                 data: _,
