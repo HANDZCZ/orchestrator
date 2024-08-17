@@ -8,7 +8,6 @@ use orchestrator::{
     generic::{
         node::{
             fn_node::{FnNode, FnNodeFutureExt, FnOutput},
-            squash_nodes::OrchestratorAsNodeExt,
             AnyNode, Node, NodeOutput, Returnable,
         },
         orchestrator::{GenericOrchestrator, OrchestratorError},
