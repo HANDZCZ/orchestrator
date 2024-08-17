@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use async_trait::async_trait;
 
 use crate::{
-    orchestrator::{ErrorInner, Orchestrator},
+    orchestrator::{ErrorInner, Orchestrator, OrchestratorRunInner},
     pipeline::Pipeline,
 };
 
@@ -143,11 +143,15 @@ where
     }
 }
 
-impl<Input, Output, Error> GenericOrchestrator<Input, Output, Error>
+#[cfg_attr(not(docs_cfg), async_trait)]
+impl<Input, Output, Error> OrchestratorRunInner for GenericOrchestrator<Input, Output, Error>
 where
-    Input: Clone,
+    Input: Send + Sync + Clone + 'static,
+    Output: Send + Sync + 'static,
+    Error: Send + Sync + 'static,
+    OrchestratorError: Into<Error>,
 {
-    pub(crate) async fn run_inner(&self, input: Input) -> Result<Output, ErrorInner<Error>> {
+    async fn run_inner(&self, input: Self::Input) -> Result<Self::Output, ErrorInner<Self::Error>> {
         for pipeline in &self.pipelines {
             match pipeline
                 .run(input.clone())
