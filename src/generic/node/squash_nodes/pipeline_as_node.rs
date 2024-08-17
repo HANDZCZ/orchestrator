@@ -7,11 +7,8 @@ use crate::{
         node::{Node, NodeOutput, Returnable},
         pipeline::PipelineStorage,
     },
-    pipeline::Pipeline,
+    pipeline::{DebuggablePipeline, Pipeline},
 };
-
-trait DebuggablePipeline: Pipeline + Debug {}
-impl<T> DebuggablePipeline for T where T: Pipeline + Debug {}
 
 /// Type that wraps around some [`Pipeline`] to crate a [`Node`] from it.
 ///

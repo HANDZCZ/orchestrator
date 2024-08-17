@@ -2,10 +2,10 @@ use std::{fmt::Debug, sync::Arc};
 
 use async_trait::async_trait;
 
-use crate::{orchestrator::Orchestrator, pipeline::Pipeline};
-
-trait DebuggableOrchestrator: Orchestrator + Debug {}
-impl<T> DebuggableOrchestrator for T where T: Orchestrator + Debug {}
+use crate::{
+    orchestrator::{DebuggableOrchestrator, Orchestrator},
+    pipeline::Pipeline,
+};
 
 /// Type that wraps around [`Orchestrator`] to crate a [`Pipeline`] from it.
 ///

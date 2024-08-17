@@ -50,3 +50,11 @@ where
     /// Runs the [`Pipelines`](crate::pipeline::Pipeline) and returns the result when some [`Pipeline`](crate::pipeline::Pipeline) finishes successfully.
     async fn run(&self, input: Self::Input) -> Result<Self::Output, Self::Error>;
 }
+
+pub(crate) trait DebuggableOrchestrator: Orchestrator + Debug {}
+impl<T> DebuggableOrchestrator for T where T: Orchestrator + Debug {}
+
+pub(crate) enum ErrorInner<E> {
+    AllPipelinesSoftFailed,
+    Other(E),
+}

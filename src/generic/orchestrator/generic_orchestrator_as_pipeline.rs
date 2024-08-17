@@ -2,9 +2,12 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::{generic::pipeline::PipelineOutput, pipeline::Pipeline};
+use crate::{
+    generic::{orchestrator::GenericOrchestrator, pipeline::PipelineOutput},
+    orchestrator::ErrorInner,
+    pipeline::Pipeline,
+};
 
-use super::{ErrorInner, GenericOrchestrator};
 
 /// Type that wraps around [`GenericOrchestrator`] to crate a [`Pipeline`] from it.
 ///

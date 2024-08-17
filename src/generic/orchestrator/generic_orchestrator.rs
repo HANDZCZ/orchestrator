@@ -2,7 +2,10 @@ use std::fmt::Debug;
 
 use async_trait::async_trait;
 
-use crate::{orchestrator::Orchestrator, pipeline::Pipeline};
+use crate::{
+    orchestrator::{ErrorInner, Orchestrator},
+    pipeline::Pipeline,
+};
 
 use super::{
     internal_pipeline::{InternalPipeline, InternalPipelineOutput, InternalPipelineStruct},
@@ -157,11 +160,6 @@ where
         }
         Err(ErrorInner::AllPipelinesSoftFailed)
     }
-}
-
-pub(crate) enum ErrorInner<E> {
-    AllPipelinesSoftFailed,
-    Other(E),
 }
 
 impl<Input, Output, Error> GenericOrchestrator<Input, Output, Error>

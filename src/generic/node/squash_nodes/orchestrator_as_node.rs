@@ -7,11 +7,8 @@ use crate::{
         node::{Node, NodeOutput, Returnable},
         pipeline::PipelineStorage,
     },
-    orchestrator::Orchestrator,
+    orchestrator::{DebuggableOrchestrator, Orchestrator},
 };
-
-trait DebuggableOrchestrator: Orchestrator + Debug {}
-impl<T> DebuggableOrchestrator for T where T: Orchestrator + Debug {}
 
 /// Type that wraps around some [`Orchestrator`] to crate a [`Node`] from it.
 ///

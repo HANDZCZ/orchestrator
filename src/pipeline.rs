@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use async_trait::async_trait;
 
 /// Defines what methods should be implemented for a pipeline.
@@ -40,3 +42,6 @@ where
     /// Runs the pipeline.
     async fn run(&self, input: Self::Input) -> Result<Self::Output, Self::Error>;
 }
+
+pub(crate) trait DebuggablePipeline: Pipeline + Debug {}
+impl<T> DebuggablePipeline for T where T: Pipeline + Debug {}
