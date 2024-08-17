@@ -1,15 +1,18 @@
-use std::sync::Arc;
+use std::{fmt::Debug, hash::Hash, sync::Arc};
 
 use async_trait::async_trait;
 
 use crate::{
-    generic::{orchestrator::GenericOrchestrator, pipeline::PipelineOutput},
-    orchestrator::ErrorInner,
+    generic::pipeline::PipelineOutput,
+    orchestrator::{
+        DebuggableRunInnerOrchestrator, ErrorInner, Orchestrator, OrchestratorRunInner,
+    },
     pipeline::Pipeline,
 };
 
+use super::{GenericOrchestrator, KeyedGenericOrchestrator, OrchestratorError};
 
-/// Type that wraps around [`GenericOrchestrator`] to crate a [`Pipeline`] from it.
+/// Type that wraps around some generic orchestrator type to crate a [`Pipeline`] from it.
 ///
 /// This type correctly converts [`AllPipelinesSoftFailed`](crate::generic::orchestrator::OrchestratorError::AllPipelinesSoftFailed) error into [`PipelineOutput::SoftFail`].
 ///
@@ -81,7 +84,7 @@ use crate::{
 ///     // construct generic orchestrator that takes and returns a string
 ///     let mut orchestrator = GenericOrchestrator::<String, String, MyOrchestratorError<()>>::new();
 ///     // construct and add an orchestrator as a pipeline that takes and returns a String
-///     // this but orchestrator doesn't have any pipelines so it returns an error AllPipelinesSoftFailed
+///     // this orchestrator doesn't have any pipelines so it returns an error AllPipelinesSoftFailed
 ///     let empty_orchestrator = GenericOrchestrator::<String, String, MyOrchestratorError<()>>::new();
 ///     orchestrator.add_pipeline(empty_orchestrator.into_pipeline());
 ///     // add a pipeline that was created from orchestrator
@@ -103,37 +106,25 @@ use crate::{
 /// ```
 #[derive(Debug)]
 pub struct GenericOrchestratorAsPipeline<Input, Output, Error> {
-    orchestrator: Arc<GenericOrchestrator<Input, Output, Error>>,
+    #[cfg(docs_cfg)]
+    _types: std::marker::PhantomData<(Input, Output, Error)>,
+    #[cfg(not(docs_cfg))]
+    orchestrator:
+        Arc<dyn DebuggableRunInnerOrchestrator<Input = Input, Output = Output, Error = Error>>,
 }
 
 impl<Input, Output, Error> GenericOrchestratorAsPipeline<Input, Output, Error> {
-    /// Creates new instance of [`GenericOrchestratorAsPipeline`] from [`GenericOrchestrator`].
+    /// Creates new instance of [`GenericOrchestratorAsPipeline`] from some generic orchestrator.
     #[must_use]
-    pub fn new(orchestrator: GenericOrchestrator<Input, Output, Error>) -> Self {
+    fn new<OrchestratorType>(orchestrator: OrchestratorType) -> Self
+    where
+        OrchestratorType: Orchestrator<Input = Input, Output = Output, Error = Error>
+            + OrchestratorRunInner
+            + Debug
+            + 'static,
+    {
         Self {
             orchestrator: Arc::new(orchestrator),
-        }
-    }
-}
-impl<Input, Output, Error> From<GenericOrchestrator<Input, Output, Error>>
-    for GenericOrchestratorAsPipeline<Input, Output, Error>
-{
-    fn from(value: GenericOrchestrator<Input, Output, Error>) -> Self {
-        Self::new(value)
-    }
-}
-
-impl<Input, Output, Error> GenericOrchestrator<Input, Output, Error> {
-    /// Converts [`GenericOrchestrator`] into [`Pipeline`].
-    #[must_use]
-    pub fn into_pipeline(self) -> GenericOrchestratorAsPipeline<Input, Output, Error> {
-        GenericOrchestratorAsPipeline::new(self)
-    }
-}
-impl<Input, Output, Error> Clone for GenericOrchestratorAsPipeline<Input, Output, Error> {
-    fn clone(&self) -> Self {
-        Self {
-            orchestrator: self.orchestrator.clone(),
         }
     }
 }
@@ -157,3 +148,50 @@ where
         }
     }
 }
+
+impl<Input, Output, Error> Clone for GenericOrchestratorAsPipeline<Input, Output, Error> {
+    fn clone(&self) -> Self {
+        Self {
+            orchestrator: self.orchestrator.clone(),
+        }
+    }
+}
+
+impl<Input, Output, Error, T> From<T> for GenericOrchestratorAsPipeline<Input, Output, Error>
+where
+    T: Orchestrator<Input = Input, Output = Output, Error = Error> + Debug + OrchestratorRunInner,
+    Input: Send + Sync + Clone + Debug + 'static,
+    Output: Send + Sync + Debug + 'static,
+    Error: Send + Sync + Debug + 'static,
+    OrchestratorError: Into<Error>,
+{
+    fn from(value: T) -> Self {
+        Self::new(value)
+    }
+}
+
+macro_rules! impl_into_pipeline {
+    ($name:ident) => {
+        impl_into_pipeline!($name,);
+    };
+    ($name:ident, $($arg:ident $(: $first_bound:tt $(+ $other_bounds:tt)*)?),*) => {
+        impl<Input, Output, Error, $($arg $(: $first_bound $(+ $other_bounds)*)?),*> $name<Input, Output, Error, $($arg),*>
+        where
+            Input: Send + Sync + Clone + Debug + 'static,
+            Output: Send + Sync + Debug + 'static,
+            Error: Send + Sync + Debug + 'static,
+            OrchestratorError: Into<Error>,
+        {
+            /// Correctly converts generic orchestrator into [`Pipeline`].
+            ///
+            /// For more info look at [`GenericOrchestratorAsPipeline`].
+            #[must_use]
+            pub fn into_pipeline(self) -> GenericOrchestratorAsPipeline<Input, Output, Error> {
+                GenericOrchestratorAsPipeline::new(self)
+            }
+        }
+    };
+}
+
+impl_into_pipeline!(GenericOrchestrator);
+impl_into_pipeline!(KeyedGenericOrchestrator, Key: Debug + Send + Sync + Eq + Hash + 'static);
