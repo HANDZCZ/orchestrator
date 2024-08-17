@@ -181,8 +181,10 @@ where
         }
     }
 
-    /// Adds a pipeline to the [`GenericOrchestrator`] which needs to have same the input and output as the [`GenericOrchestrator`].
-    /// It also needs to have an error type that implements `Into<OrchestratorErrorType>`.
+    /// Adds a pipeline to the [`GenericOrchestrator`].
+    ///
+    /// Pipeline needs to have an input type that can be converted from orchestrator input type.
+    /// It also needs to have an output/error type that can be converted to orchestrator output/error type.
     pub fn add_pipeline<PipelineType>(&mut self, pipeline: PipelineType)
     where
         PipelineType: Pipeline + Debug,
