@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use std::fmt::Debug;
 
 /// Defines what methods should be implemented for an orchestrator and what types should be used in [`Pipelines`](crate::pipeline::Pipeline).
 ///
@@ -54,7 +55,18 @@ where
 pub(crate) trait DebuggableOrchestrator: Orchestrator + Debug {}
 impl<T> DebuggableOrchestrator for T where T: Orchestrator + Debug {}
 
+#[cfg_attr(not(docs_cfg), async_trait)]
+pub(crate) trait OrchestratorRunInner: Orchestrator {
+    async fn run_inner(&self, input: Self::Input) -> Result<Self::Output, ErrorInner<Self::Error>>;
+}
+
 pub(crate) enum ErrorInner<E> {
     AllPipelinesSoftFailed,
     Other(E),
 }
+
+pub(crate) trait DebuggableRunInnerOrchestrator:
+    Orchestrator + OrchestratorRunInner + Debug
+{
+}
+impl<T> DebuggableRunInnerOrchestrator for T where T: Orchestrator + OrchestratorRunInner + Debug {}
