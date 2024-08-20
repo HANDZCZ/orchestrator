@@ -198,12 +198,13 @@ macro_rules! impl_into_node {
         impl_into_node!($name,);
     };
     ($name:ident, $($arg:ident $(: $first_bound:tt $(+ $other_bounds:tt)*)?),*) => {
-        impl<Input, Output, Error, $($arg $(: $first_bound $(+ $other_bounds)*)?),*> $name<Input, Output, Error, $($arg),*>
+        impl<Input, Output, Error, $($arg),*> $name<Input, Output, Error, $($arg),*>
         where
             Input: Send + Sync + Clone + Debug + 'static,
             Output: Send + Sync + Debug + 'static,
             Error: Send + Sync + Debug + 'static,
             OrchestratorError: Into<Error>,
+            $($($arg: $first_bound $(+ $other_bounds)*)?),*
         {
             /// Correctly converts generic orchestrator into [`Node`].
             ///
