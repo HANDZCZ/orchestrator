@@ -347,7 +347,7 @@ where
     Output: Send + Sync + 'static,
     Error: Send + Sync + 'static,
     PipelineError: Into<Error>,
-    NodeInput: Debug + Send + Sync + 'static,
+    NodeInput: Send + Sync + 'static,
 {
     /// Adds node to the pipeline.
     pub fn add_node<NodeType>(
