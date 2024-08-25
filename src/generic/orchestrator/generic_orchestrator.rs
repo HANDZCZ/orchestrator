@@ -8,8 +8,8 @@ use crate::{
 };
 
 use super::{
-    internal_pipeline::{InternalPipeline, InternalPipelineOutput, InternalPipelineStruct},
-    OrchestratorError,
+    internal_pipeline::{InternalPipelineOutput, InternalPipelineStruct},
+    InternalPipelineType, OrchestratorError,
 };
 
 /// Generic implementation of [`Orchestrator`] trait.
@@ -120,7 +120,7 @@ use super::{
 /// ```
 #[derive(Debug)]
 pub struct GenericOrchestrator<Input, Output, Error> {
-    pipelines: Vec<Box<dyn InternalPipeline<Input, InternalPipelineOutput<Output>, Error>>>,
+    pipelines: Vec<InternalPipelineType<Input, Output, Error>>,
 }
 
 #[cfg_attr(not(docs_cfg), async_trait)]

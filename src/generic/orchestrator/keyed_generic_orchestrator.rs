@@ -8,8 +8,8 @@ use crate::{
 };
 
 use super::{
-    internal_pipeline::{InternalPipeline, InternalPipelineOutput, InternalPipelineStruct},
-    OrchestratorError,
+    internal_pipeline::{InternalPipelineOutput, InternalPipelineStruct},
+    InternalPipelineType, OrchestratorError,
 };
 
 /// Generic implementation of [`Orchestrator`] trait.
@@ -129,8 +129,7 @@ use super::{
 /// }
 /// ```
 pub struct KeyedGenericOrchestrator<Input, Output, Error, Key: Debug> {
-    pipeline_buckets:
-        HashMap<Key, Vec<Box<dyn InternalPipeline<Input, InternalPipelineOutput<Output>, Error>>>>,
+    pipeline_buckets: HashMap<Key, Vec<InternalPipelineType<Input, Output, Error>>>,
     key_extractor: Box<dyn Fn(&Input) -> Key + Send + Sync>,
 }
 
