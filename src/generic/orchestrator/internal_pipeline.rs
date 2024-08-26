@@ -71,13 +71,15 @@ where
     }
 }
 
-impl<T> From<T> for InternalPipelineOutput<T>
+impl<T, U> From<U> for InternalPipelineOutput<T>
 where
-    T: Into<PipelineOutput<T>>,
+    U: Into<PipelineOutput<U>>,
+    U: Into<T>,
 {
-    fn from(value: T) -> Self {
+    fn from(value: U) -> Self {
         // ¯\_(ツ)_/¯
-        // T -> PipelineOutput<T> -> InternalPipelineOutput<T>
-        value.into().into()
+        // U -> PipelineOutput<U> -> InternalPipelineOutput<T>
+        let pipeline_output: PipelineOutput<U> = value.into();
+        pipeline_output.into()
     }
 }
