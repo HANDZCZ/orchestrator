@@ -256,7 +256,7 @@ where
     }
 }
 
-#[cfg_attr(not(docs_cfg), async_trait)]
+#[cfg_attr(not(all(doc, not(doctest))), async_trait)]
 impl<Input, Output, Error> Pipeline for GenericPipeline<Input, Output, Error>
 where
     Input: Send + Sync + 'static,

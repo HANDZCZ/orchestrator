@@ -171,7 +171,7 @@ where
     }
 }
 
-#[cfg_attr(not(docs_cfg), async_trait)]
+#[cfg_attr(not(all(doc, not(doctest))), async_trait)]
 impl<Input, Output, Error, FnType> Node for FnNode<Input, Output, Error, FnType>
 where
     for<'a> FnType: Fn(Input, &'a mut PipelineStorage) -> FnOutput<'a, Output, Error>

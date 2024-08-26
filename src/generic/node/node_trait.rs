@@ -29,7 +29,7 @@ use super::NodeOutput;
 ///    }
 /// }
 /// ```
-#[cfg_attr(not(docs_cfg), async_trait)]
+#[cfg_attr(not(all(doc, not(doctest))), async_trait)]
 pub trait Node: Send + Sync + Clone + 'static
 where
     Self::Input: Send + Sync + 'static,

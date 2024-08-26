@@ -123,7 +123,7 @@ pub struct GenericOrchestrator<Input, Output, Error> {
     pipelines: Vec<InternalPipelineType<Input, Output, Error>>,
 }
 
-#[cfg_attr(not(docs_cfg), async_trait)]
+#[cfg_attr(not(all(doc, not(doctest))), async_trait)]
 impl<Input, Output, Error> Orchestrator for GenericOrchestrator<Input, Output, Error>
 where
     Input: Send + Sync + Clone + 'static,
@@ -143,7 +143,7 @@ where
     }
 }
 
-#[cfg_attr(not(docs_cfg), async_trait)]
+#[cfg_attr(not(all(doc, not(doctest))), async_trait)]
 impl<Input, Output, Error> OrchestratorRunInner for GenericOrchestrator<Input, Output, Error>
 where
     Input: Send + Sync + Clone + 'static,

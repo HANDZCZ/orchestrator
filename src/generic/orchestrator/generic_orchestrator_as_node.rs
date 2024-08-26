@@ -125,9 +125,9 @@ use super::{GenericOrchestrator, KeyedGenericOrchestrator, OrchestratorError};
 /// ```
 #[derive(Debug)]
 pub struct GenericOrchestratorAsNode<Input, Output, Error> {
-    #[cfg(docs_cfg)]
+    #[cfg(all(doc, not(doctest)))]
     _types: std::marker::PhantomData<(Input, Output, Error)>,
-    #[cfg(not(docs_cfg))]
+    #[cfg(not(all(doc, not(doctest))))]
     orchestrator:
         Arc<dyn DebuggableRunInnerOrchestrator<Input = Input, Output = Output, Error = Error>>,
 }
@@ -148,7 +148,7 @@ impl<Input, Output, Error> GenericOrchestratorAsNode<Input, Output, Error> {
     }
 }
 
-#[cfg_attr(not(docs_cfg), async_trait)]
+#[cfg_attr(not(all(doc, not(doctest))), async_trait)]
 impl<Input, Output, Error> Node for GenericOrchestratorAsNode<Input, Output, Error>
 where
     Input: Clone + Send + Sync + 'static,

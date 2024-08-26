@@ -143,7 +143,7 @@ impl<Input, Output, Error, Key: Debug> Debug
     }
 }
 
-#[cfg_attr(not(docs_cfg), async_trait)]
+#[cfg_attr(not(all(doc, not(doctest))), async_trait)]
 impl<Input, Output, Error, Key> Orchestrator for KeyedGenericOrchestrator<Input, Output, Error, Key>
 where
     Input: Send + Sync + Clone + 'static,
@@ -164,7 +164,7 @@ where
     }
 }
 
-#[cfg_attr(not(docs_cfg), async_trait)]
+#[cfg_attr(not(all(doc, not(doctest))), async_trait)]
 impl<Input, Output, Error, Key> OrchestratorRunInner
     for KeyedGenericOrchestrator<Input, Output, Error, Key>
 where

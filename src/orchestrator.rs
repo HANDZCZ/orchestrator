@@ -34,7 +34,7 @@ use std::fmt::Debug;
 ///     }
 /// }
 /// ```
-#[cfg_attr(not(docs_cfg), async_trait)]
+#[cfg_attr(not(all(doc, not(doctest))), async_trait)]
 pub trait Orchestrator: Send + Sync + 'static
 where
     Self::Input: Send + Sync + Clone + 'static,
@@ -55,7 +55,7 @@ where
 pub(crate) trait DebuggableOrchestrator: Orchestrator + Debug {}
 impl<T> DebuggableOrchestrator for T where T: Orchestrator + Debug {}
 
-#[cfg_attr(not(docs_cfg), async_trait)]
+#[cfg_attr(not(all(doc, not(doctest))), async_trait)]
 pub(crate) trait OrchestratorRunInner: Orchestrator {
     async fn run_inner(&self, input: Self::Input) -> Result<Self::Output, ErrorInner<Self::Error>>;
 }

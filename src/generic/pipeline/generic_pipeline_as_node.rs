@@ -172,7 +172,7 @@ impl<Input, Output, Error> Clone for GenericPipelineAsNode<Input, Output, Error>
     }
 }
 
-#[cfg_attr(not(docs_cfg), async_trait)]
+#[cfg_attr(not(all(doc, not(doctest))), async_trait)]
 impl<Input, Output, Error> Node for GenericPipelineAsNode<Input, Output, Error>
 where
     Input: Send + Sync + 'static,
